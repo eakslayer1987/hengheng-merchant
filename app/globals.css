@@ -1,57 +1,294 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* =====================================================
+   เฮงเฮงปังจัง — Global Design System
+   Kanit font · Thai-flag BG · Breathable Typography
+   ===================================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&display=swap');
+
+/* ── CSS Variables ── */
 :root {
-  --brand:  #fd1803;
-  --brand2: #e01502;
-  --dark:   #1C1C2E;
-  --navy:   #2D2D44;
+  --red:       #fd1803;
+  --red2:      #c01002;
+  --dark:      #1C1C2E;
+  --navy:      #2D2D44;
+  --font:      'Kanit', 'Sarabun', sans-serif;
+
+  /* Thai-flag BG (from ปังจัง.com login) */
+  --bg-thai:
+    radial-gradient(ellipse 55% 80% at 0% 50%,   rgba(253,24,3,0.40)  0%, transparent 58%),
+    radial-gradient(ellipse 45% 70% at 100% 50%,  rgba(30,64,175,0.32) 0%, transparent 58%),
+    radial-gradient(ellipse 60% 60% at 50% 50%,   rgba(255,255,255,1)  0%, #f4f4f8 100%);
+
+  /* Type scale */
+  --text-xs:   0.75rem;   /* 12px */
+  --text-sm:   0.875rem;  /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg:   1.125rem;  /* 18px */
+  --text-xl:   1.25rem;   /* 20px */
+  --text-2xl:  1.5rem;    /* 24px */
+  --text-3xl:  1.875rem;  /* 30px */
+  --text-4xl:  2.25rem;   /* 36px */
+  --text-5xl:  3rem;      /* 48px */
+  --text-6xl:  3.75rem;   /* 60px */
+  --text-7xl:  4.5rem;    /* 72px */
 }
 
-html { scroll-behavior: smooth; }
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-@layer utilities {
-  .text-gradient {
-    background: linear-gradient(135deg, #fd1803, #e01502);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .bg-brand-gradient {
-    background: linear-gradient(135deg, #fd1803 0%, #e01502 100%);
-  }
-  .bg-dark-gradient {
-    background: linear-gradient(160deg, #1C1C2E 0%, #2D2D44 55%, #3a2020 100%);
-  }
-  .shadow-orange {
-    box-shadow: 0 4px 20px rgba(253,24,3,.4);
-  }
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+body {
+  font-family: var(--font);
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: 1.65;
+  color: #111;
+  background: #fff;
+  letter-spacing: 0.01em;
+}
+
+/* ── Typography — Kanit ขนาดใหญ่ หายใจได้ ── */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #0a0a0f;
+}
+
+h1 { font-size: clamp(2.8rem, 7vw, var(--text-7xl)); margin-bottom: 1rem;  }
+h2 { font-size: clamp(2rem,   5vw, var(--text-5xl)); margin-bottom: 0.8rem; }
+h3 { font-size: clamp(1.4rem, 3vw, var(--text-3xl)); margin-bottom: 0.6rem; }
+h4 { font-size: var(--text-xl);  font-weight: 800; }
+h5 { font-size: var(--text-lg);  font-weight: 700; }
+h6 { font-size: var(--text-base); font-weight: 700; }
+
+p {
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: 1.75;
+  color: #4B5563;
+  margin-bottom: 1rem;
+}
+
+/* Lead paragraph */
+p.lead {
+  font-size: var(--text-lg);
+  font-weight: 500;
+  color: #374151;
+  line-height: 1.8;
+}
+
+/* Labels / captions */
+.label-sm {
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--red);
+}
+
+/* ── Links ── */
+a { color: var(--red); text-decoration: none; transition: opacity .2s; }
+a:hover { opacity: .8; }
+
+/* ── Buttons base ── */
+button, .btn {
+  font-family: var(--font);
+  font-weight: 800;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all .25s cubic-bezier(.22,1,.36,1);
+}
+
+/* ── Thai-flag BG utility ── */
+.bg-thai {
+  background: var(--bg-thai);
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animated moving version */
+.bg-thai-animated {
+  background: var(--bg-thai);
+  background-size: 120% 120%;
+  animation: bgShift 12s ease-in-out infinite alternate;
+}
+
+@keyframes bgShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 60% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+/* Dark hero variant */
+.bg-dark-hero {
+  background:
+    radial-gradient(ellipse 70% 60% at 0% 0%,   rgba(253,24,3,.15)  0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(45,45,68,.8) 0%, transparent 70%),
+    linear-gradient(160deg, #1C1C2E 0%, #2D2D44 60%, #3a1a1a 100%);
+}
+
+/* ── Glass Card ── */
+.glass-card {
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: blur(28px) saturate(1.6);
+  -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  border: 1.5px solid rgba(255,255,255,0.9);
+  box-shadow: 0 32px 80px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06);
+  border-radius: 28px;
+}
+
+/* ── Card ── */
+.card {
+  background: #fff;
+  border: 1.5px solid #F0F0F6;
+  border-radius: 20px;
+  padding: 24px;
+  transition: box-shadow .25s, border-color .25s, transform .25s;
+}
+.card:hover {
+  box-shadow: 0 12px 40px rgba(0,0,0,.08);
+  border-color: rgba(253,24,3,.2);
+  transform: translateY(-3px);
+}
+
+/* ── Inputs ── */
+.input {
+  width: 100%;
+  font-family: var(--font);
+  font-size: var(--text-base);
+  font-weight: 600;
+  padding: 13px 16px;
+  border-radius: 14px;
+  border: 1.5px solid #E5E7EB;
+  background: rgba(255,255,255,.8);
+  color: #111;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.input:focus {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(253,24,3,.1);
+}
+.input::placeholder { color: #9CA3AF; font-weight: 400; }
+
+/* ── Buttons ── */
+.btn-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--red), var(--red2));
+  color: #fff;
+  font-size: var(--text-base);
+  font-weight: 900;
+  box-shadow: 0 8px 28px rgba(253,24,3,.4);
+  letter-spacing: .3px;
+  transition: all .25s cubic-bezier(.22,1,.36,1);
+}
+.btn-red:hover {
+  opacity: .92;
+  box-shadow: 0 12px 36px rgba(253,24,3,.55);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 28px;
+  border-radius: 16px;
+  border: 2px solid #E5E7EB;
+  background: #fff;
+  color: #374151;
+  font-size: var(--text-base);
+  font-weight: 700;
+  transition: all .2s;
+}
+.btn-outline:hover {
+  border-color: rgba(253,24,3,.35);
+  color: var(--red);
+  transform: translateY(-1px);
+}
+
+/* ── Floating blobs (background decorative) ── */
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(40px);
+  animation: blobFloat 8s ease-in-out infinite alternate;
+}
+@keyframes blobFloat {
+  0%   { transform: translate(0,0) scale(1); }
+  100% { transform: translate(12px,-20px) scale(1.07); }
+}
+
+/* ── Section spacing ── */
+.section { padding: 96px 24px; }
+.section-sm { padding: 64px 24px; }
+.container { max-width: 1200px; margin: 0 auto; }
+
+/* ── Text utilities ── */
+.text-red    { color: var(--red); }
+.text-muted  { color: #9CA3AF; }
+.text-dark   { color: #0a0a0f; }
+.font-black  { font-weight: 900; }
+.font-bold   { font-weight: 700; }
+
+/* ── Red top border accent ── */
+.accent-top {
+  position: relative;
+}
+.accent-top::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--red), rgba(253,24,3,.3));
+  border-radius: 999px 999px 0 0;
+}
+
+/* ── Animations ── */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(28px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity:0; transform:translateY(24px); }
+  to   { opacity:1; transform:translateY(0); }
 }
-.animate-fadeUp { animation: fadeUp 0.6s ease both; }
-.delay-100 { animation-delay: 0.1s; }
-.delay-200 { animation-delay: 0.2s; }
-.delay-300 { animation-delay: 0.3s; }
-.delay-400 { animation-delay: 0.4s; }
-.delay-500 { animation-delay: 0.5s; }
+@keyframes fadeIn {
+  from { opacity:0; }
+  to   { opacity:1; }
+}
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(253,24,3,.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(253,24,3,.0); }
+}
 
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
-}
-.animate-blink { animation: blink 2s infinite; }
+/* ── Scrollbar ── */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #F9FAFB; }
+::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--red); }
 
-.reveal {
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity 0.65s ease, transform 0.65s ease;
+/* ── Focus ring ── */
+*:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
-.reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
+
+/* ── Responsive type scale ── */
+@media (max-width: 768px) {
+  h1 { font-size: clamp(2.2rem, 10vw, 3rem); }
+  h2 { font-size: clamp(1.6rem, 7vw, 2.25rem); }
+  .section { padding: 64px 16px; }
 }

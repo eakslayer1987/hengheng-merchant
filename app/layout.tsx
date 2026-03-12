@@ -5,8 +5,10 @@ import './globals.css'
 const kanit = Kanit({
   subsets: ['thai', 'latin'],
   weight: ['300', '400', '500', '600', '700', '800', '900'],
+  style: ['normal', 'italic'],
   variable: '--font-kanit',
   display: 'swap',
+  preload: true,
 })
 
 export const metadata: Metadata = {
@@ -23,7 +25,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className={kanit.variable}>
-      <body className="font-kanit antialiased">{children}</body>
+      <body>{children}</body>
     </html>
   )
 }
