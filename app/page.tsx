@@ -334,59 +334,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ══ PRICING ══ */}
-        <section id="pricing" className="py-28 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-6 lg:px-12">
-            <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
-              className="text-center mb-14">
-              <div className="text-xs font-extrabold tracking-[4px] uppercase mb-3" style={{ color: RED }}>แพ็กเกจ</div>
-              <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-3">เลือกแผนที่เหมาะกับร้านคุณ</h2>
-              <p className="text-gray-400 text-lg font-light">ไม่มีสัญญาผูกมัด ยกเลิกได้ทุกเมื่อ</p>
-            </motion.div>
-
-            <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {plans.map(p => (
-                <motion.div key={p.name} variants={fadeUp}
-                  className="bg-white border-2 border-gray-100 rounded-3xl p-9 flex flex-col hover:border-[#fd1803]/20 hover:shadow-xl transition-all duration-300 relative overflow-hidden"
-                  whileHover={{ y: -4, transition: { duration: 0.2 } }}>
-                  <div className="absolute top-0 left-0 right-0 h-[3px]"
-                    style={{ background: `linear-gradient(90deg,${RED},#ff8070)` }} />
-                  {p.badge && (
-                    <span className="inline-block text-white text-[10px] font-black tracking-widest uppercase px-3 py-1 rounded-full mb-4 w-fit"
-                      style={{ background: RED }}>{p.badge}</span>
-                  )}
-                  <div className="text-xs font-bold uppercase tracking-[3px] mb-2 text-gray-300">{p.tier}</div>
-                  <div className="text-2xl font-black text-gray-900 mb-1">{p.name}</div>
-                  <div className="text-4xl font-black text-gray-900 mb-1">
-                    {p.price}<span className="text-sm font-medium ml-1 text-gray-400">{p.unit}</span>
-                  </div>
-                  <div className="text-sm text-gray-400 font-light mb-6">{p.desc}</div>
-                  <ul className="flex flex-col gap-3 mb-8 flex-1">
-                    {p.features.map(f => (
-                      <li key={f} className="text-sm flex gap-2.5 items-start font-medium text-gray-700">
-                        <CheckCircle2 size={15} className="mt-0.5 shrink-0" style={{ color: RED }} />{f}
-                      </li>
-                    ))}
-                    {p.off.map(f => (
-                      <li key={f} className="text-sm flex gap-2.5 items-start text-gray-300">
-                        <XCircle size={15} className="mt-0.5 shrink-0 text-gray-200" />{f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link href="/register"
-                    className="w-full py-4 rounded-2xl text-sm font-black text-center block transition-all hover:opacity-90"
-                    style={p.fill
-                      ? { background: `linear-gradient(135deg,${RED},#e01502)`, color: '#fff', boxShadow: '0 8px 30px rgba(253,24,3,.35)' }
-                      : { border: `2px solid ${RED}`, color: RED }}>
-                    {p.cta}
-                  </Link>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </section>
-
         {/* ══ CTA ══ */}
         <section className="py-24 text-center relative overflow-hidden"
           style={{ background: `linear-gradient(160deg,${DARK},#2D2D44)` }}>
