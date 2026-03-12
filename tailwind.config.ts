@@ -1,5 +1,6 @@
 import type { Config } from 'tailwindcss'
 
+
 const config: Config = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -17,7 +18,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['Sarabun', 'sans-serif'],
+        kanit: ['var(--font-kanit)', 'Kanit', 'sans-serif'],
+        sans:  ['var(--font-kanit)', 'Kanit', 'sans-serif'],
       },
       boxShadow: {
         card:   '0 2px 20px rgba(0,0,0,0.08)',

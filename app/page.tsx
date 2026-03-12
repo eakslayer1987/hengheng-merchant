@@ -1,391 +1,421 @@
 'use client'
-import { useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
+import {
+  QrCode, Store, Users, BarChart3, ShieldCheck, Zap,
+  Gift, ChevronRight, Star, TrendingUp, Bell, MapPin,
+  CheckCircle2, XCircle, ArrowRight, Sparkles
+} from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 
 const RED = '#fd1803'
-const RED2 = '#e01502'
 const DARK = '#1C1C2E'
 
-/* ─── Flow Steps ─── */
+const fadeUp = {
+  hidden: { opacity: 0, y: 40 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
+}
+const stagger = { hidden:{}, show:{ transition:{ staggerChildren: 0.1 } } }
+const slideIn = {
+  hidden: { opacity: 0, x: -30 },
+  show:   { opacity: 1, x: 0, transition: { duration: 0.5, ease: [0.22,1,0.36,1] } },
+}
+
 const merchantFlow = [
-  { icon: '🛒', title: 'ร้านค้าซื้อซอสเฮงเฮงปังจัง', desc: 'ทุกกล่อง/แกลลอนมี QR Code หรือรหัสหลังฝาไว้ให้สแกน' },
-  { icon: '📱', title: 'สแกนรับแต้ม CRM', desc: 'ร้านค้าสแกนผ่าน LINE OA ได้แต้มสะสมเข้าบัญชีร้านทันที' },
-  { icon: '🪧', title: 'รับสแตนดี้ QR ไปตั้งโต๊ะ', desc: 'แบรนด์ส่งป้ายสแตนดี้ฝัง Shop ID ให้ร้านตั้งที่โต๊ะอาหาร' },
-  { icon: '🎁', title: 'ลูกค้าสแกน → ร้านได้รางวัลด้วย!', desc: 'เมื่อลูกค้าถูกรางวัล ระบบแจ้งเตือนร้านทันที ได้รางวัลพร้อมกัน' },
+  { icon: Store,    title: 'ซื้อซอสเฮงเฮงปังจัง',         desc: 'ทุกกล่องมี QR Code / รหัสหลังฝาสำหรับสแกนสะสมแต้ม' },
+  { icon: QrCode,   title: 'สแกนรับแต้ม CRM',             desc: 'สแกนผ่าน LINE OA ได้แต้มเข้าบัญชีร้านทันที' },
+  { icon: MapPin,   title: 'รับสแตนดี้ QR ตั้งโต๊ะอาหาร', desc: 'แบรนด์ส่งป้ายฝัง Shop ID ให้ร้านตั้งที่โต๊ะ' },
+  { icon: Gift,     title: 'ลูกค้าถูกรางวัล ร้านได้ด้วย!', desc: 'ระบบแจ้งเตือน LINE ร้านทันทีเมื่อลูกค้าถูกรางวัล' },
 ]
 
 const consumerFlow = [
-  { icon: '🍽️', title: 'ลูกค้ามาทานอาหาร', desc: 'เห็นสแตนดี้เฮงเฮงปังจังบนโต๊ะ' },
-  { icon: '📷', title: 'สแกน QR ผ่านมือถือ', desc: 'ไม่ต้องโหลดแอปเพิ่ม ใช้แค่ LINE ที่มีอยู่แล้ว' },
-  { icon: '🎰', title: 'หมุนวงล้อ / เปิดกล่องสุ่ม', desc: 'ลุ้นรางวัลทันที กินฟรีมื้อนี้, ส่วนลด, ของพรีเมียม' },
-  { icon: '🏆', title: 'ถูกรางวัล! ร้านได้ด้วย!', desc: 'ลูกค้าได้รางวัล ร้านได้ซอสฟรี/เงินสด/แต้มพิเศษพร้อมกัน' },
-]
-
-const rewards = [
-  { prob: '1%', icon: '🎉', label: 'รางวัลใหญ่', desc: 'กินฟรีมื้อนี้ + ซอสฟรี 1 ลัง', color: '#FFD700' },
-  { prob: '20%', icon: '🎁', label: 'รางวัลเล็ก', desc: 'ส่วนลด / ของพรีเมียม', color: '#fd1803' },
-  { prob: '79%', icon: '⭐', label: 'แต้มสะสม', desc: 'แต้มเข้า LINE OA อัตโนมัติ', color: '#8B5CF6' },
+  { icon: Users,    title: 'ลูกค้ามาทานอาหาร',      desc: 'เห็นสแตนดี้เฮงเฮงปังจังบนโต๊ะ' },
+  { icon: QrCode,   title: 'สแกน QR ผ่าน LINE',      desc: 'ไม่ต้องโหลดแอปเพิ่ม ใช้ LINE ที่มีอยู่แล้ว' },
+  { icon: Star,     title: 'หมุนวงล้อ / ลุ้นรางวัล', desc: 'กินฟรีมื้อนี้, ส่วนลด, ของพรีเมียม' },
+  { icon: Bell,     title: 'ถูกรางวัล! ร้านได้ด้วย', desc: 'Double Reward — ลูกค้าและร้านค้าได้รางวัลพร้อมกัน' },
 ]
 
 const features = [
-  { icon: '🔐', title: 'Unique QR Code', desc: 'แต่ละล็อตสินค้ามี QR เฉพาะ ป้องกันการปลอมแปลง 100%' },
-  { icon: '🎰', title: 'Gamification Engine', desc: 'ตั้งค่าโควต้าและความน่าจะเป็นรางวัลได้เองจาก Dashboard' },
-  { icon: '🔗', title: 'Relationship Mapping', desc: 'ระบบจับคู่ลูกค้า↔ร้านได้เป๊ะ จ่ายรางวัลถูกร้านเสมอ' },
-  { icon: '📊', title: 'Brand Dashboard', desc: 'ดู Real-time ว่าซอสล็อตนี้ไปถึงร้านไหน ลูกค้าสแกนเยอะแค่ไหน' },
-  { icon: '🛡️', title: 'Fraud Prevention', desc: 'GPS + จำกัด 1 เบอร์/วัน ป้องกันร้านสแกนแทนลูกค้า' },
-  { icon: '📱', title: 'LINE OA / LIFF', desc: 'ใช้งานได้ทันทีผ่าน LINE ไม่ต้องโหลดแอปเพิ่ม' },
+  { icon: QrCode,      title: 'Unique QR Code',         desc: 'แต่ละล็อตสินค้ามี QR เฉพาะ ป้องกันการปลอมแปลง 100%' },
+  { icon: Sparkles,    title: 'Gamification Engine',     desc: 'ตั้งค่าโควต้าและความน่าจะเป็นรางวัลได้เองจาก Dashboard' },
+  { icon: Zap,         title: 'Relationship Mapping',    desc: 'ระบบจับคู่ลูกค้า↔ร้านได้เป๊ะ จ่ายรางวัลถูกร้านเสมอ' },
+  { icon: BarChart3,   title: 'Brand Dashboard',         desc: 'ดู Real-time ว่าซอสล็อตนี้ไปถึงร้านไหน มีลูกค้าสแกนเท่าไหร่' },
+  { icon: ShieldCheck, title: 'Fraud Prevention',        desc: 'GPS + จำกัด 1 เบอร์/วัน ป้องกันร้านสแกนแทนลูกค้า' },
+  { icon: TrendingUp,  title: 'LINE OA / LIFF',          desc: 'ใช้งานได้ทันทีผ่าน LINE ไม่ต้องโหลดแอปเพิ่ม' },
 ]
 
 const stats = [
   { n: '2,500+', l: 'ร้านค้าพาร์ทเนอร์' },
   { n: '50,000+', l: 'QR Code ที่ออก' },
-  { n: '1.2M+', l: 'แต้มที่สะสม' },
+  { n: '1.2M+', l: 'แต้มสะสม' },
   { n: '98%', l: 'ความพึงพอใจ' },
 ]
 
-export default function Home() {
-  const hasReveal = useRef(false)
-  useEffect(() => {
-    if (hasReveal.current) return
-    hasReveal.current = true
-    const obs = new IntersectionObserver(
-      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible') }),
-      { threshold: 0.08 }
-    )
-    document.querySelectorAll('.reveal').forEach(el => obs.observe(el))
-    return () => obs.disconnect()
-  }, [])
+const plans = [
+  {
+    name: 'Starter', price: 'ฟรี', unit: '', tier: 'สำหรับร้านเล็ก',
+    desc: 'เริ่มต้นสร้าง Loyalty โดยไม่ต้องลงทุน',
+    badge: null, fill: false, cta: 'เริ่มต้นฟรี',
+    features: ['QR Code 200 โค้ด/เดือน', 'Dashboard พื้นฐาน', 'LINE OA Integration', 'สุ่มรางวัลพื้นฐาน'],
+    off: ['AI Predictive', 'Open API'],
+  },
+  {
+    name: 'Pro', price: '฿1,990', unit: '/เดือน', tier: 'ยอดนิยม',
+    desc: 'Double Reward + AI เต็มรูปแบบ',
+    badge: 'ยอดนิยม', fill: true, cta: 'สมัครเลย',
+    features: ['QR Code ไม่จำกัด', 'Dashboard + Analytics', 'Push Message อัตโนมัติ', 'Gamification Engine เต็มรูปแบบ', 'Fraud Prevention GPS', 'Relationship Mapping'],
+    off: ['Open API Partner'],
+  },
+  {
+    name: 'Enterprise', price: 'ติดต่อ', unit: '', tier: 'แฟรนไชส์ / เชน',
+    desc: 'ระบบครบวงจรสำหรับธุรกิจขนาดใหญ่',
+    badge: null, fill: false, cta: 'คุยกับทีมงาน',
+    features: ['Multi-branch Dashboard', 'White Label App', 'Full AI + Gamification', 'Open API (Grab, LINE MAN)', 'Custom Reward Rules', 'Dedicated Support'],
+    off: [],
+  },
+]
 
+export default function Home() {
   return (
     <>
       <Navbar />
-      <main>
+      <main className="font-kanit">
 
         {/* ══ HERO ══ */}
         <section className="relative min-h-screen flex items-center overflow-hidden"
-          style={{background:`linear-gradient(160deg,${DARK} 0%,#2D2D44 55%,#3a1a1a 100%)`}}>
-          <div className="absolute inset-0 pointer-events-none"
-            style={{background:'radial-gradient(ellipse 70% 60% at 60% 30%,rgba(253,24,3,.12),transparent 70%)'}}/>
-          {/* floating circles */}
-          <div className="absolute top-20 right-20 w-64 h-64 rounded-full opacity-5"
-            style={{background:`radial-gradient(circle,${RED},transparent)`,filter:'blur(40px)'}}/>
-          <div className="absolute bottom-20 left-10 w-40 h-40 rounded-full opacity-5"
-            style={{background:`radial-gradient(circle,${RED},transparent)`,filter:'blur(30px)'}}/>
+          style={{ background: `linear-gradient(160deg,${DARK} 0%,#2D2D44 60%,#3a1a1a 100%)` }}>
+          {/* glow blobs */}
+          <div className="absolute top-0 right-0 w-[700px] h-[700px] rounded-full pointer-events-none"
+            style={{ background: 'radial-gradient(circle,rgba(253,24,3,.12),transparent 70%)', filter: 'blur(60px)' }} />
+          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full pointer-events-none"
+            style={{ background: 'radial-gradient(circle,rgba(253,24,3,.08),transparent 70%)', filter: 'blur(40px)' }} />
 
-          <div className="max-w-7xl mx-auto px-6 lg:px-12 w-full py-24 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[12px] font-bold tracking-wide mb-6 animate-fadeUp"
-                style={{background:'rgba(253,24,3,.15)',border:'1px solid rgba(253,24,3,.3)',color:'#ff8070'}}>
-                <span className="w-1.5 h-1.5 rounded-full animate-blink" style={{background:'#ff8070'}}/>
+          <div className="max-w-7xl mx-auto px-6 lg:px-12 w-full py-28 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
+            <motion.div variants={stagger} initial="hidden" animate="show">
+              <motion.div variants={fadeUp}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold tracking-widest uppercase mb-6"
+                style={{ background: 'rgba(253,24,3,.15)', border: '1px solid rgba(253,24,3,.35)', color: '#ff9080' }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ff9080] animate-pulse" />
                 B2B2C Gamification Loyalty — 2025
-              </div>
-              <h1 className="text-4xl lg:text-6xl font-extrabold text-white leading-[1.1] mb-5 animate-fadeUp" style={{animationDelay:'.1s'}}>
-                ลูกค้าถูกรางวัล<br/>
-                <span style={{color:'#ff8070'}}>ร้านค้าได้ด้วย</span><br/>
+              </motion.div>
+
+              <motion.h1 variants={fadeUp}
+                className="text-5xl lg:text-[64px] font-black text-white leading-[1.05] mb-6 tracking-tight">
+                ลูกค้าถูกรางวัล<br />
+                <span style={{ color: '#ff8070' }}>ร้านค้าได้ด้วย</span><br />
                 พร้อมกันทันที!
-              </h1>
-              <p className="text-lg text-white/60 leading-relaxed mb-8 max-w-[480px] animate-fadeUp" style={{animationDelay:'.2s'}}>
-                ระบบ Double Reward ที่ผูกซอสเฮงเฮงปังจัง → ร้านอาหาร → ลูกค้า<br/>
+              </motion.h1>
+
+              <motion.p variants={fadeUp}
+                className="text-lg text-white/55 leading-relaxed mb-9 max-w-[480px] font-light">
+                ระบบ Double Reward ผูก ซอสเฮงเฮงปังจัง → ร้านอาหาร → ลูกค้า<br />
                 ในวงจรเดียว ผ่าน LINE OA ไม่ต้องโหลดแอปเพิ่ม
-              </p>
-              <div className="flex gap-3 flex-wrap animate-fadeUp" style={{animationDelay:'.3s'}}>
+              </motion.p>
+
+              <motion.div variants={fadeUp} className="flex gap-3 flex-wrap">
                 <Link href="/register"
-                  className="px-8 py-3.5 rounded-xl text-[15px] font-extrabold text-white hover:opacity-90 transition-opacity inline-flex items-center gap-2"
-                  style={{background:`linear-gradient(135deg,${RED},${RED2})`,boxShadow:'0 4px 20px rgba(253,24,3,.4)'}}>
-                  🚀 สมัครร้านค้าฟรี
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl text-[15px] font-bold text-white hover:opacity-90 transition-opacity"
+                  style={{ background: `linear-gradient(135deg,${RED},#e01502)`, boxShadow: '0 8px 30px rgba(253,24,3,.45)' }}>
+                  สมัครร้านค้าฟรี <ArrowRight size={16} />
                 </Link>
                 <a href="#how"
-                  className="px-7 py-3.5 rounded-xl text-[15px] font-bold text-white bg-white/10 border border-white/20 hover:bg-white/15 transition-colors inline-flex items-center gap-2">
-                  ▶ ดูวิธีทำงาน
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl text-[15px] font-bold text-white bg-white/10 border border-white/20 hover:bg-white/15 transition-colors">
+                  ดูวิธีทำงาน <ChevronRight size={16} />
                 </a>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
-            {/* Double Reward Card */}
-            <div className="hidden lg:flex justify-center animate-fadeUp" style={{animationDelay:'.4s'}}>
-              <div className="relative">
-                {/* Merchant card */}
-                <div className="bg-white rounded-2xl p-5 shadow-2xl w-64 absolute -left-8 top-0 z-10">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
-                      style={{background:`linear-gradient(135deg,${RED},${RED2})`}}>🏪</div>
+            {/* Hero Card */}
+            <motion.div initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="hidden lg:flex justify-center">
+              <div className="relative w-[400px] h-[380px]">
+                {/* merchant card */}
+                <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+                  className="absolute left-0 top-0 bg-white rounded-3xl p-6 w-60 shadow-2xl">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ background: `linear-gradient(135deg,${RED},#e01502)` }}>
+                      <Store size={18} color="white" />
+                    </div>
                     <div>
-                      <div className="text-xs font-extrabold text-gray-900">ร้านกะเพราป้าแดง</div>
-                      <div className="text-[10px] text-gray-400">Merchant Account</div>
+                      <div className="text-sm font-black text-gray-900">ร้านกะเพราป้าแดง</div>
+                      <div className="text-[10px] text-gray-400 font-medium">Merchant Account</div>
                     </div>
                   </div>
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
-                    <div className="text-xl">🎉</div>
-                    <div className="text-xs font-extrabold text-green-700">ได้รางวัลด้วย!</div>
-                    <div className="text-[10px] text-green-600">ซอสฟรี 1 ลัง</div>
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+                    <CheckCircle2 size={24} className="mx-auto mb-1 text-emerald-500" />
+                    <div className="text-sm font-black text-emerald-700">ได้รางวัลด้วย!</div>
+                    <div className="text-xs text-emerald-600 font-medium">ซอสฟรี 1 ลัง มูลค่า ฿480</div>
                   </div>
-                  <div className="mt-2 text-[10px] text-gray-400 text-center">แจ้งเตือนผ่าน LINE OA ✅</div>
-                </div>
-                {/* Consumer card */}
-                <div className="bg-white rounded-2xl p-5 shadow-2xl w-64 ml-16 mt-16">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm bg-purple-100">👤</div>
+                  <div className="mt-3 flex items-center gap-1.5 text-[10px] text-gray-400 font-medium">
+                    <Bell size={10} /> แจ้งเตือน LINE OA แล้ว
+                  </div>
+                </motion.div>
+
+                {/* consumer card */}
+                <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut', delay: 0.5 }}
+                  className="absolute right-0 bottom-0 bg-white rounded-3xl p-6 w-60 shadow-2xl">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                      <Users size={18} className="text-purple-600" />
+                    </div>
                     <div>
-                      <div className="text-xs font-extrabold text-gray-900">ลูกค้า</div>
-                      <div className="text-[10px] text-gray-400">สแกน QR บนโต๊ะ</div>
+                      <div className="text-sm font-black text-gray-900">ลูกค้า</div>
+                      <div className="text-[10px] text-gray-400 font-medium">สแกน QR บนโต๊ะ</div>
                     </div>
                   </div>
-                  {/* Spin wheel mockup */}
-                  <div className="rounded-xl p-3 text-center mb-2"
-                    style={{background:`linear-gradient(135deg,${RED},${RED2})`}}>
-                    <div className="text-2xl mb-1">🎰</div>
-                    <div className="text-white text-xs font-extrabold">หมุนวงล้อ!</div>
-                    <div className="text-white/80 text-[10px]">ลุ้นรางวัลทันที</div>
+                  <div className="rounded-2xl p-4 text-center mb-3"
+                    style={{ background: `linear-gradient(135deg,${RED},#e01502)` }}>
+                    <Star size={22} className="mx-auto mb-1 text-white fill-white" />
+                    <div className="text-white text-sm font-black">ถูกรางวัล!</div>
+                    <div className="text-white/80 text-xs font-medium">กินฟรีมื้อนี้</div>
                   </div>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-2 text-center">
-                    <div className="text-xs font-extrabold text-yellow-700">🏆 ถูกรางวัล! กินฟรีมื้อนี้</div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 text-center">
+                    <div className="text-xs font-black text-amber-700">🏆 รางวัลใหญ่ — มูลค่า ฿350</div>
                   </div>
-                </div>
-                {/* connecting arrow */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-black z-20 shadow-lg"
-                  style={{background:`linear-gradient(135deg,${RED},${RED2})`}}>⚡</div>
+                </motion.div>
+
+                {/* center bolt */}
+                <motion.div animate={{ scale: [1, 1.15, 1], rotate: [0, 10, -10, 0] }}
+                  transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full flex items-center justify-center z-20 shadow-xl"
+                  style={{ background: `linear-gradient(135deg,${RED},#e01502)` }}>
+                  <Zap size={22} color="white" fill="white" />
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </section>
 
         {/* ══ STATS ══ */}
-        <div className="bg-gray-50 border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-6 lg:px-12 py-5 flex flex-wrap gap-8 items-center">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">เชื่อใจโดย</span>
-            <div className="flex flex-wrap gap-10">
-              {stats.map(({n,l}) => (
-                <div key={l} className="text-center">
-                  <div className="text-xl font-black text-gray-900">{n}</div>
-                  <div className="text-[11px] text-gray-500 font-semibold">{l}</div>
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+          className="bg-white border-b border-gray-100">
+          <div className="max-w-7xl mx-auto px-6 lg:px-12 py-6 flex flex-wrap gap-10 items-center">
+            <span className="text-xs font-bold text-gray-300 uppercase tracking-[3px]">เชื่อใจโดย</span>
+            <div className="flex flex-wrap gap-12">
+              {stats.map(({ n, l }) => (
+                <div key={l}>
+                  <div className="text-2xl font-black text-gray-900">{n}</div>
+                  <div className="text-xs text-gray-400 font-semibold">{l}</div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* ══ HOW IT WORKS ══ */}
-        <section id="how" className="py-24 bg-white">
+        <section id="how" className="py-28 bg-gray-50">
           <div className="max-w-7xl mx-auto px-6 lg:px-12">
-            <div className="text-center mb-16 reveal">
-              <div className="text-xs font-extrabold tracking-[3px] uppercase mb-3" style={{color:RED}}>วิธีทำงาน</div>
-              <h2 className="text-4xl font-extrabold text-gray-900 mb-3">Double Reward Flow</h2>
-              <p className="text-gray-500 text-lg">ลูกค้าถูกรางวัล ร้านได้รางวัลพร้อมกันทันทีในระบบเดียว</p>
-            </div>
+            <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
+              className="text-center mb-16">
+              <div className="text-xs font-extrabold tracking-[4px] uppercase mb-3" style={{ color: RED }}>วิธีทำงาน</div>
+              <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-3">Double Reward Flow</h2>
+              <p className="text-gray-400 text-lg font-light">ลูกค้าถูกรางวัล ร้านได้พร้อมกันทันทีในระบบเดียว</p>
+            </motion.div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              {/* Merchant Flow */}
-              <div className="reveal">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                    style={{background:`linear-gradient(135deg,${RED},${RED2})`}}>🏪</div>
-                  <div>
-                    <div className="text-sm font-extrabold text-gray-900">สำหรับร้านค้า (Merchant)</div>
-                    <div className="text-xs text-gray-400">ซื้อซอส → สะสมแต้ม → รับรางวัล</div>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-0">
-                  {merchantFlow.map((s, i) => (
-                    <div key={s.title} className="flex gap-4 pb-6 relative">
-                      {i < merchantFlow.length - 1 && (
-                        <div className="absolute left-[19px] top-11 w-0.5 bottom-0 bg-gray-100"/>
-                      )}
-                      <div className="w-10 h-10 min-w-[40px] rounded-full flex items-center justify-center text-lg bg-red-50 border-2 z-10"
-                        style={{borderColor:RED}}>
-                        {s.icon}
-                      </div>
-                      <div>
-                        <div className="text-sm font-extrabold text-gray-900 mb-0.5">{s.title}</div>
-                        <p className="text-xs text-gray-500 leading-relaxed">{s.desc}</p>
-                      </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+              {[
+                { label: 'สำหรับร้านค้า (Merchant)', sub: 'ซื้อซอส → สแกน → รับรางวัล', flow: merchantFlow, accent: RED },
+                { label: 'สำหรับลูกค้า (Consumer)',  sub: 'สแกน QR → ลุ้นรางวัล → ถูกรางวัล', flow: consumerFlow, accent: '#7C3AED' },
+              ].map(({ label, sub, flow, accent }) => (
+                <motion.div key={label} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
+                  className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="w-11 h-11 rounded-2xl flex items-center justify-center"
+                      style={{ background: `${accent}18` }}>
+                      <Store size={20} style={{ color: accent }} />
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Consumer Flow */}
-              <div className="reveal">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-purple-100">👤</div>
-                  <div>
-                    <div className="text-sm font-extrabold text-gray-900">สำหรับลูกค้า (Consumer)</div>
-                    <div className="text-xs text-gray-400">สแกน QR → หมุนวงล้อ → ลุ้นรางวัล</div>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-0">
-                  {consumerFlow.map((s, i) => (
-                    <div key={s.title} className="flex gap-4 pb-6 relative">
-                      {i < consumerFlow.length - 1 && (
-                        <div className="absolute left-[19px] top-11 w-0.5 bottom-0 bg-gray-100"/>
-                      )}
-                      <div className="w-10 h-10 min-w-[40px] rounded-full flex items-center justify-center text-lg bg-purple-50 border-2 border-purple-200 z-10">
-                        {s.icon}
-                      </div>
-                      <div>
-                        <div className="text-sm font-extrabold text-gray-900 mb-0.5">{s.title}</div>
-                        <p className="text-xs text-gray-500 leading-relaxed">{s.desc}</p>
-                      </div>
+                    <div>
+                      <div className="text-base font-black text-gray-900">{label}</div>
+                      <div className="text-xs text-gray-400 font-medium">{sub}</div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                  <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true }}
+                    className="flex flex-col gap-0">
+                    {flow.map((s, i) => (
+                      <motion.div key={s.title} variants={slideIn} className="flex gap-4 pb-7 relative">
+                        {i < flow.length - 1 && (
+                          <div className="absolute left-[21px] top-12 w-[2px] bottom-0 bg-gray-100" />
+                        )}
+                        <div className="w-11 h-11 min-w-[44px] rounded-2xl flex items-center justify-center z-10 border-2"
+                          style={{ background: `${accent}10`, borderColor: `${accent}30` }}>
+                          <s.icon size={18} style={{ color: accent }} />
+                        </div>
+                        <div className="pt-1.5">
+                          <div className="text-sm font-black text-gray-900 mb-1">{s.title}</div>
+                          <p className="text-xs text-gray-400 leading-relaxed font-light">{s.desc}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </motion.div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* ══ REWARD SYSTEM ══ */}
-        <section className="py-24" style={{background:`linear-gradient(160deg,${DARK},#2D2D44)`}}>
+        {/* ══ REWARD TIERS ══ */}
+        <section className="py-28" style={{ background: `linear-gradient(160deg,${DARK},#2D2D44)` }}>
           <div className="max-w-7xl mx-auto px-6 lg:px-12">
-            <div className="text-center mb-14 reveal">
-              <div className="text-xs font-extrabold tracking-[3px] uppercase mb-3" style={{color:'#ff8070'}}>ระบบรางวัล</div>
-              <h2 className="text-4xl font-extrabold text-white mb-3">Gamification Engine</h2>
-              <p className="text-white/50 text-lg">ตั้งค่าโควต้าและความน่าจะเป็นรางวัลได้เองจาก Dashboard</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 reveal">
-              {rewards.map(r => (
-                <div key={r.label} className="rounded-2xl p-8 text-center border border-white/10 hover:border-white/20 transition-all"
-                  style={{background:'rgba(255,255,255,0.05)'}}>
-                  <div className="text-5xl mb-4">{r.icon}</div>
-                  <div className="text-4xl font-black mb-2" style={{color:r.color}}>{r.prob}</div>
-                  <div className="text-lg font-extrabold text-white mb-2">{r.label}</div>
-                  <div className="text-sm text-white/50">{r.desc}</div>
-                </div>
+            <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
+              className="text-center mb-14">
+              <div className="text-xs font-extrabold tracking-[4px] uppercase mb-3" style={{ color: '#ff9080' }}>ระบบรางวัล</div>
+              <h2 className="text-4xl lg:text-5xl font-black text-white mb-3">Gamification Engine</h2>
+              <p className="text-white/40 text-lg font-light">ตั้งค่าโควต้าและความน่าจะเป็นรางวัลได้เองจาก Dashboard</p>
+            </motion.div>
+
+            <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+              {[
+                { prob: '1%',  Icon: Gift,       label: 'รางวัลใหญ่',  desc: 'กินฟรีมื้อนี้ + ซอสฟรี 1 ลัง',       color: '#FFD700' },
+                { prob: '20%', Icon: Star,       label: 'รางวัลเล็ก',  desc: 'ส่วนลด / ของพรีเมียม',               color: RED },
+                { prob: '79%', Icon: TrendingUp, label: 'แต้มสะสม',    desc: 'แต้มเข้า LINE OA อัตโนมัติ',         color: '#818CF8' },
+              ].map(({ prob, Icon, label, desc, color }) => (
+                <motion.div key={label} variants={fadeUp}
+                  className="rounded-3xl p-8 text-center border border-white/8 hover:border-white/15 transition-all"
+                  style={{ background: 'rgba(255,255,255,0.04)' }}
+                  whileHover={{ y: -6, transition: { duration: 0.25 } }}>
+                  <div className="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+                    style={{ background: `${color}18` }}>
+                    <Icon size={26} style={{ color }} />
+                  </div>
+                  <div className="text-5xl font-black mb-2" style={{ color }}>{prob}</div>
+                  <div className="text-lg font-black text-white mb-2">{label}</div>
+                  <div className="text-sm text-white/40 font-light">{desc}</div>
+                </motion.div>
               ))}
-            </div>
-            <div className="mt-8 bg-white/5 border border-white/10 rounded-2xl p-6 reveal">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">🛡️</span>
-                <div>
-                  <div className="text-sm font-extrabold text-white mb-1">Fraud Prevention</div>
-                  <div className="text-sm text-white/50">ป้องกันร้านค้าสแกน QR แทนลูกค้า — ระบบจำกัด 1 เบอร์โทร/วัน + GPS ตรวจสอบว่าสแกนจากอุปกรณ์เดียวซ้ำซากหรือไม่</div>
+            </motion.div>
+
+            <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
+              className="bg-white/5 border border-white/10 rounded-3xl p-6 flex items-start gap-4">
+              <div className="w-11 h-11 min-w-[44px] rounded-2xl flex items-center justify-center"
+                style={{ background: 'rgba(253,24,3,.15)' }}>
+                <ShieldCheck size={20} style={{ color: RED }} />
+              </div>
+              <div>
+                <div className="text-base font-black text-white mb-1">Fraud Prevention</div>
+                <div className="text-sm text-white/40 font-light">
+                  ป้องกันร้านค้าสแกน QR แทนลูกค้า — ระบบจำกัด 1 เบอร์โทร/วัน + GPS ตรวจสอบว่าสแกนจากอุปกรณ์เดียวซ้ำซากหรือไม่
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </section>
 
         {/* ══ FEATURES ══ */}
-        <section id="features" className="py-24 bg-white">
+        <section id="features" className="py-28 bg-white">
           <div className="max-w-7xl mx-auto px-6 lg:px-12">
-            <div className="text-center mb-14 reveal">
-              <div className="text-xs font-extrabold tracking-[3px] uppercase mb-3" style={{color:RED}}>ฟีเจอร์ทั้งหมด</div>
-              <h2 className="text-4xl font-extrabold text-gray-900 mb-3">ระบบครบวงจร</h2>
-              <p className="text-gray-500 text-lg">ทุกเครื่องมือที่แบรนด์และร้านค้าต้องการ ในแดชบอร์ดเดียว</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 reveal">
-              {features.map(f => (
-                <div key={f.title}
-                  className="border-2 border-gray-100 rounded-2xl p-7 hover:border-[#fd1803]/30 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 group relative overflow-hidden">
-                  <div className="absolute top-0 left-0 right-0 h-[3px] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"
-                    style={{background:`linear-gradient(90deg,${RED},#ff8070)`}}/>
-                  <div className="text-3xl mb-4">{f.icon}</div>
-                  <h3 className="text-base font-extrabold text-gray-900 mb-2">{f.title}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
-                </div>
+            <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
+              className="text-center mb-14">
+              <div className="text-xs font-extrabold tracking-[4px] uppercase mb-3" style={{ color: RED }}>ฟีเจอร์ทั้งหมด</div>
+              <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-3">ระบบครบวงจร</h2>
+              <p className="text-gray-400 text-lg font-light">ทุกเครื่องมือที่แบรนด์และร้านค้าต้องการ ในแดชบอร์ดเดียว</p>
+            </motion.div>
+
+            <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {features.map(({ icon: Icon, title, desc }) => (
+                <motion.div key={title} variants={fadeUp}
+                  className="group border-2 border-gray-100 rounded-3xl p-8 hover:border-[#fd1803]/20 hover:shadow-xl transition-all duration-300 relative overflow-hidden"
+                  whileHover={{ y: -4, transition: { duration: 0.2 } }}>
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                    style={{ background: 'linear-gradient(160deg,rgba(253,24,3,.02),transparent)' }} />
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5"
+                    style={{ background: 'rgba(253,24,3,.08)' }}>
+                    <Icon size={22} style={{ color: RED }} />
+                  </div>
+                  <h3 className="text-base font-black text-gray-900 mb-2">{title}</h3>
+                  <p className="text-sm text-gray-400 leading-relaxed font-light">{desc}</p>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </section>
 
         {/* ══ PRICING ══ */}
-        <section id="pricing" className="py-24 bg-gray-50">
+        <section id="pricing" className="py-28 bg-gray-50">
           <div className="max-w-7xl mx-auto px-6 lg:px-12">
-            <div className="text-center mb-14 reveal">
-              <div className="text-xs font-extrabold tracking-[3px] uppercase mb-3" style={{color:RED}}>แพ็กเกจ</div>
-              <h2 className="text-4xl font-extrabold text-gray-900 mb-3">เลือกแผนที่เหมาะกับร้านคุณ</h2>
-              <p className="text-gray-500 text-lg">ทุกแพ็กเกจไม่มีสัญญาผูกมัด ยกเลิกได้ทุกเมื่อ</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 reveal">
-              {[
-                {
-                  tier:'สำหรับร้านเล็ก', name:'Starter', price:'ฟรี', unit:'/เดือน',
-                  desc:'เริ่มสร้าง Loyalty โดยไม่ต้องลงทุน',
-                  badge:null,
-                  features:['QR Code สูงสุด 200 โค้ด/เดือน','Dashboard พื้นฐาน','LINE OA Integration','สุ่มรางวัลพื้นฐาน'],
-                  off:['AI Predictive','Open API'],
-                  cta:'เริ่มต้นฟรี', fill:false
-                },
-                {
-                  tier:'ยอดนิยม', name:'Pro', price:'฿1,990', unit:'/เดือน',
-                  desc:'Double Reward + AI เต็มรูปแบบ',
-                  badge:'⭐ ยอดนิยม',
-                  features:['QR Code ไม่จำกัด','Dashboard + Analytics เชิงลึก','LINE OA + Push Message อัตโนมัติ','Gamification Engine เต็มรูปแบบ','Fraud Prevention GPS','Relationship Mapping'],
-                  off:['Open API Partner'],
-                  cta:'สมัครเลย', fill:true
-                },
-                {
-                  tier:'แฟรนไชส์ / เชน', name:'Enterprise', price:'ติดต่อ', unit:'',
-                  desc:'ระบบครบวงจรสำหรับธุรกิจขนาดใหญ่',
-                  badge:null,
-                  features:['Multi-branch Dashboard','White Label App','Full AI + Gamification','Open API (Grab, LINE MAN)','Custom Reward Rules','Dedicated Support'],
-                  off:[],
-                  cta:'คุยกับทีมงาน', fill:false
-                },
-              ].map(p => (
-                <div key={p.name}
-                  className="bg-white border-2 border-gray-100 rounded-2xl p-9 flex flex-col hover:border-[#fd1803]/30 hover:shadow-lg transition-all duration-200 relative overflow-hidden">
+            <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}
+              className="text-center mb-14">
+              <div className="text-xs font-extrabold tracking-[4px] uppercase mb-3" style={{ color: RED }}>แพ็กเกจ</div>
+              <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-3">เลือกแผนที่เหมาะกับร้านคุณ</h2>
+              <p className="text-gray-400 text-lg font-light">ไม่มีสัญญาผูกมัด ยกเลิกได้ทุกเมื่อ</p>
+            </motion.div>
+
+            <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {plans.map(p => (
+                <motion.div key={p.name} variants={fadeUp}
+                  className="bg-white border-2 border-gray-100 rounded-3xl p-9 flex flex-col hover:border-[#fd1803]/20 hover:shadow-xl transition-all duration-300 relative overflow-hidden"
+                  whileHover={{ y: -4, transition: { duration: 0.2 } }}>
                   <div className="absolute top-0 left-0 right-0 h-[3px]"
-                    style={{background:`linear-gradient(90deg,${RED},#ff8070)`}}/>
+                    style={{ background: `linear-gradient(90deg,${RED},#ff8070)` }} />
                   {p.badge && (
-                    <span className="inline-block text-white text-[10px] font-extrabold tracking-wider uppercase px-3 py-1 rounded-full mb-4 w-fit"
-                      style={{background:RED}}>{p.badge}</span>
+                    <span className="inline-block text-white text-[10px] font-black tracking-widest uppercase px-3 py-1 rounded-full mb-4 w-fit"
+                      style={{ background: RED }}>{p.badge}</span>
                   )}
-                  <div className="text-xs font-bold uppercase tracking-wider mb-2 text-gray-400">{p.tier}</div>
-                  <div className="text-2xl font-black mb-2 text-gray-900">{p.name}</div>
-                  <div className="text-4xl font-black mb-1 text-gray-900">
-                    {p.price}<span className="text-sm font-normal ml-1 text-gray-400">{p.unit}</span>
+                  <div className="text-xs font-bold uppercase tracking-[3px] mb-2 text-gray-300">{p.tier}</div>
+                  <div className="text-2xl font-black text-gray-900 mb-1">{p.name}</div>
+                  <div className="text-4xl font-black text-gray-900 mb-1">
+                    {p.price}<span className="text-sm font-medium ml-1 text-gray-400">{p.unit}</span>
                   </div>
-                  <div className="text-sm text-gray-500 mb-6 mt-1">{p.desc}</div>
+                  <div className="text-sm text-gray-400 font-light mb-6">{p.desc}</div>
                   <ul className="flex flex-col gap-3 mb-8 flex-1">
                     {p.features.map(f => (
                       <li key={f} className="text-sm flex gap-2.5 items-start font-medium text-gray-700">
-                        <span className="font-black mt-0.5" style={{color:RED}}>✓</span>{f}
+                        <CheckCircle2 size={15} className="mt-0.5 shrink-0" style={{ color: RED }} />{f}
                       </li>
                     ))}
                     {p.off.map(f => (
-                      <li key={f} className="text-sm flex gap-2.5 items-start text-gray-300 opacity-50">
-                        <span className="font-black mt-0.5">—</span>{f}
+                      <li key={f} className="text-sm flex gap-2.5 items-start text-gray-300">
+                        <XCircle size={15} className="mt-0.5 shrink-0 text-gray-200" />{f}
                       </li>
                     ))}
                   </ul>
                   <Link href="/register"
-                    className="w-full py-3.5 rounded-xl text-sm font-extrabold text-center block transition-all hover:opacity-90"
+                    className="w-full py-4 rounded-2xl text-sm font-black text-center block transition-all hover:opacity-90"
                     style={p.fill
-                      ? {background:`linear-gradient(135deg,${RED},${RED2})`,color:'#fff',boxShadow:'0 4px 20px rgba(253,24,3,.4)'}
-                      : {border:`2px solid ${RED}`,color:RED}}>
+                      ? { background: `linear-gradient(135deg,${RED},#e01502)`, color: '#fff', boxShadow: '0 8px 30px rgba(253,24,3,.35)' }
+                      : { border: `2px solid ${RED}`, color: RED }}>
                     {p.cta}
                   </Link>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </section>
 
         {/* ══ CTA ══ */}
-        <section className="py-20 text-center relative overflow-hidden"
-          style={{background:`linear-gradient(160deg,${DARK},#2D2D44)`}}>
+        <section className="py-24 text-center relative overflow-hidden"
+          style={{ background: `linear-gradient(160deg,${DARK},#2D2D44)` }}>
           <div className="absolute inset-0 pointer-events-none"
-            style={{background:'radial-gradient(ellipse 60% 80% at 50% 0%,rgba(253,24,3,0.18),transparent 70%)'}}/>
-          <div className="max-w-2xl mx-auto px-6 relative reveal">
-            <h2 className="text-4xl lg:text-5xl font-extrabold text-white mb-4">
-              พร้อมสร้าง<br/>
-              <span style={{color:'#ff8070'}}>Double Reward</span><br/>
-              ให้ร้านคุณแล้วหรือยัง?
-            </h2>
-            <p className="text-white/60 text-lg mb-10">สมัครฟรี ไม่ต้องใส่บัตรเครดิต เริ่มออก QR Code ได้ใน 15 นาที</p>
-            <div className="flex gap-4 justify-center flex-wrap">
-              <Link href="/register"
-                className="px-9 py-4 rounded-xl text-[15px] font-extrabold text-white hover:opacity-90 transition-opacity"
-                style={{background:`linear-gradient(135deg,${RED},${RED2})`,boxShadow:'0 4px 20px rgba(253,24,3,.4)'}}>
-                🚀 สมัครร้านค้าฟรี
-              </Link>
-              <a href="https://line.me"
-                className="px-9 py-4 rounded-xl text-[15px] font-bold text-white bg-white/10 border border-white/20 hover:bg-white/15 transition-colors">
-                📞 นัดผู้เชี่ยวชาญ
-              </a>
-            </div>
+            style={{ background: 'radial-gradient(ellipse 60% 80% at 50% 0%,rgba(253,24,3,.2),transparent 70%)' }} />
+          <div className="max-w-2xl mx-auto px-6 relative">
+            <motion.div variants={stagger} initial="hidden" whileInView="show" viewport={{ once: true }}>
+              <motion.h2 variants={fadeUp}
+                className="text-4xl lg:text-6xl font-black text-white mb-4 leading-tight">
+                พร้อมสร้าง<br />
+                <span style={{ color: '#ff8070' }}>Double Reward</span><br />
+                ให้ร้านคุณแล้วหรือยัง?
+              </motion.h2>
+              <motion.p variants={fadeUp}
+                className="text-white/50 text-lg mb-10 font-light">
+                สมัครฟรี ไม่ต้องใส่บัตรเครดิต เริ่มออก QR Code ได้ใน 15 นาที
+              </motion.p>
+              <motion.div variants={fadeUp} className="flex gap-4 justify-center flex-wrap">
+                <Link href="/register"
+                  className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl text-[15px] font-black text-white hover:opacity-90 transition-opacity"
+                  style={{ background: `linear-gradient(135deg,${RED},#e01502)`, boxShadow: '0 8px 30px rgba(253,24,3,.45)' }}>
+                  สมัครร้านค้าฟรี <ArrowRight size={16} />
+                </Link>
+                <a href="https://line.me"
+                  className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl text-[15px] font-bold text-white bg-white/10 border border-white/20 hover:bg-white/15 transition-colors">
+                  นัดผู้เชี่ยวชาญ <ChevronRight size={16} />
+                </a>
+              </motion.div>
+            </motion.div>
           </div>
         </section>
 

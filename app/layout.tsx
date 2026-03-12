@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
-import { Sarabun } from 'next/font/google'
+import { Kanit } from 'next/font/google'
 import './globals.css'
 
-const sarabun = Sarabun({
+const kanit = Kanit({
   subsets: ['thai', 'latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
-  variable: '--font-sarabun',
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  variable: '--font-kanit',
   display: 'swap',
 })
 
@@ -22,8 +22,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="th" className={sarabun.variable}>
-      <body className="font-sans antialiased">{children}</body>
+    <html lang="th" className={kanit.variable}>
+      <body className="font-kanit antialiased">{children}</body>
     </html>
   )
 }
