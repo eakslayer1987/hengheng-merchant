@@ -1,123 +1,246 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
+import { Eye, EyeOff, Loader2, Phone, Lock } from 'lucide-react'
+
+const RED = '#fd1803'
+
+const BLOBS = [
+  { size: 320, x: '10%',  y: '15%',  color: `${RED}22`,     dur: 7,  delay: 0   },
+  { size: 200, x: '75%',  y: '10%',  color: '#1e3a8a22',    dur: 9,  delay: 1.5 },
+  { size: 160, x: '80%',  y: '70%',  color: `${RED}15`,     dur: 6,  delay: 0.8 },
+  { size: 260, x: '5%',   y: '65%',  color: '#1e40af18',    dur: 8,  delay: 2   },
+  { size: 100, x: '50%',  y: '80%',  color: `${RED}20`,     dur: 5,  delay: 0.3 },
+]
+
+const stagger = { hidden:{}, show:{ transition:{ staggerChildren:0.07 } } }
+const fadeUp  = {
+  hidden: { opacity:0, y:18 },
+  show:   { opacity:1, y:0, transition:{ duration:.5, ease:[0.22,1,0.36,1] } }
+}
 
 export default function LoginPage() {
-  const [form, setForm] = useState({ email: '', password: '' })
-  const [showPw, setShowPw] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [form, setForm]         = useState({ phone:'', password:'' })
+  const [showPw, setShowPw]     = useState(false)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [remember, setRemember] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true); setError('')
+  // 1. Mouse tracking
+  const mouseX  = useMotionValue(0.5)
+  const mouseY  = useMotionValue(0.5)
+  const springX = useSpring(mouseX, { stiffness:60, damping:18 })
+  const springY = useSpring(mouseY, { stiffness:60, damping:18 })
+
+  // BG moves slightly
+  const gradX = useTransform(springX, [0,1], [-12, 12])
+  const gradY = useTransform(springY, [0,1], [-10, 10])
+
+  // Card 3-D tilt
+  const rotateX = useTransform(springY, [0,1], [ 6, -6])
+  const rotateY = useTransform(springX, [0,1], [-6,  6])
+
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      mouseX.set(e.clientX / window.innerWidth)
+      mouseY.set(e.clientY / window.innerHeight)
+    }
+    window.addEventListener('mousemove', move)
+    return () => window.removeEventListener('mousemove', move)
+  }, [])
+
+  const handleSubmit = async () => {
+    setError('')
+    if (!/^0[0-9]{8,9}$/.test(form.phone)) return setError('เบอร์โทรไม่ถูกต้อง')
+    if (form.password.length < 6)           return setError('รหัสผ่านต้องมีอย่างน้อย 6 ตัว')
+    setLoading(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login.php`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-        credentials: 'include',
+      const res  = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login.php`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(form), credentials:'include',
       })
       const data = await res.json()
       if (data.success) {
         localStorage.setItem('merchant_token', data.token)
         window.location.href = '/dashboard'
-      } else {
-        setError(data.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง')
-      }
-    } catch { setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่') }
+      } else { setError(data.message || 'เบอร์โทรหรือรหัสผ่านไม่ถูกต้อง') }
+    } catch { setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้') }
     finally { setLoading(false) }
   }
 
-  const ic = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-red-100 transition-all"
-
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel */}
-      <div className="hidden lg:flex flex-col justify-between w-[480px] bg-dark-gradient p-12 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none"
-          style={{background:'radial-gradient(ellipse 80% 60% at 50% 20%,rgba(253,24,3,.15),transparent 70%)'}}/>
-        <Link href="/" className="flex items-center gap-2.5 z-10 relative">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-orange"
-            style={{background:'linear-gradient(135deg,#fd1803,#e01502)'}}>🐻</div>
-          <div>
-            <div className="text-[16px] font-extrabold text-white leading-none">เฮงเฮงปังจัง</div>
-            <div className="text-[11px] font-bold leading-none mt-0.5" style={{color:'#fd1803'}}>Merchant Loyalty Platform</div>
-          </div>
-        </Link>
-        <div className="z-10 relative">
-          <blockquote className="text-2xl font-extrabold text-white leading-relaxed mb-5">
-            "จัดการ Loyalty ร้านค้า<br/>วัดผลได้จริง ทุกคำกิน"
-          </blockquote>
-          <div className="flex gap-3">
-            {[['2,500+','ร้านค้า'],['50K+','QR Code'],['1.2M+','แต้ม']].map(([n,l]) => (
-              <div key={l} className="bg-white/10 rounded-xl px-4 py-2.5 text-center border border-white/10">
-                <div className="text-lg font-black text-white">{n}</div>
-                <div className="text-[10px] text-white/50 font-semibold">{l}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="text-xs text-white/30 z-10 relative">© 2025 เฮงเฮงปังจัง.com</p>
-      </div>
+    <div style={{
+      minHeight:'100vh', overflow:'hidden', position:'relative',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      fontFamily:"'Kanit','Sarabun',sans-serif",
+    }}>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-6 relative overflow-hidden"
-        style={{background:'radial-gradient(ellipse 80% 80% at 0% 50%, rgba(253,24,3,0.35) 0%, transparent 55%), radial-gradient(ellipse 70% 70% at 100% 50%, rgba(59,130,246,0.25) 0%, transparent 55%), #f9fafb'}}>
-        <div className="w-full max-w-md">
-          <div className="lg:hidden mb-8 flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-orange"
-              style={{background:'linear-gradient(135deg,#fd1803,#e01502)'}}>🐻</div>
-            <div>
-              <div className="text-[15px] font-extrabold text-gray-900 leading-none">เฮงเฮงปังจัง</div>
-              <div className="text-[10px] font-bold leading-none mt-0.5" style={{color:'#fd1803'}}>Merchant Loyalty Platform</div>
-            </div>
-          </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-1">เข้าสู่ระบบ</h1>
-          <p className="text-sm text-gray-500 mb-8">ยินดีต้อนรับกลับมา จัดการร้านค้าของคุณได้เลย</p>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl mb-5 font-medium">⚠️ {error}</div>
-          )}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1.5">อีเมล</label>
-              <input type="email" required autoComplete="email" placeholder="merchant@example.com"
-                value={form.email} onChange={e => setForm({...form, email: e.target.value})}
-                className={ic} style={{borderColor: form.email ? '#fd1803' : ''}}
-                onFocus={e => e.target.style.borderColor = '#fd1803'}
-                onBlur={e => e.target.style.borderColor = '#e5e7eb'}/>
-            </div>
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="text-sm font-bold text-gray-700">รหัสผ่าน</label>
-                <a href="#" className="text-xs font-bold transition-colors" style={{color:'#fd1803'}}>ลืมรหัสผ่าน?</a>
+      {/* ── 1. BG gradient follows mouse ── */}
+      <motion.div style={{
+        position:'absolute', inset:'-20px', x:gradX, y:gradY,
+        background:`
+          radial-gradient(ellipse 55% 70% at 0% 50%,   rgba(253,24,3,0.45)   0%, transparent 60%),
+          radial-gradient(ellipse 45% 60% at 100% 50%,  rgba(30,64,175,0.35)  0%, transparent 60%),
+          radial-gradient(ellipse 60% 50% at 50%  50%,  rgba(255,255,255,1)   0%, #f1f5f9 100%)
+        `,
+      }}/>
+
+      {/* ── 2. Floating blobs ── */}
+      {BLOBS.map((b,i) => (
+        <motion.div key={i}
+          animate={{ y:[0,-24,0], x:[0,12,0], scale:[1,1.08,1] }}
+          transition={{ repeat:Infinity, duration:b.dur, delay:b.delay, ease:'easeInOut' }}
+          style={{
+            position:'absolute', borderRadius:'50%', pointerEvents:'none',
+            width:b.size, height:b.size, left:b.x, top:b.y,
+            background:`radial-gradient(circle,${b.color},transparent 70%)`,
+            filter:'blur(32px)',
+          }}
+        />
+      ))}
+
+      {/* ── 3. Card with 3-D tilt ── */}
+      <motion.div
+        style={{ position:'relative', zIndex:10, rotateX, rotateY, transformPerspective:1200 }}
+        initial={{ opacity:0, scale:.94, y:24 }}
+        animate={{ opacity:1, scale:1,   y:0  }}
+        transition={{ duration:.7, ease:[0.22,1,0.36,1] }}
+      >
+        <div style={{
+          width:420, borderRadius:28,
+          background:'rgba(255,255,255,0.82)',
+          backdropFilter:'blur(28px) saturate(1.6)',
+          border:'1.5px solid rgba(255,255,255,0.9)',
+          boxShadow:'0 32px 80px rgba(0,0,0,.14), 0 2px 8px rgba(0,0,0,.06)',
+          padding:'40px 40px 36px',
+        }}>
+
+          {/* Logo */}
+          <motion.div variants={stagger} initial="hidden" animate="show"
+            style={{ display:'flex', flexDirection:'column', alignItems:'center', marginBottom:28 }}>
+            <motion.div variants={fadeUp} style={{
+              width:60, height:60, borderRadius:16, marginBottom:12,
+              background:`linear-gradient(135deg,${RED},#c01002)`,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:28, boxShadow:`0 8px 28px ${RED}55`,
+            }}>🐻</motion.div>
+            <motion.div variants={fadeUp} style={{ fontSize:20, fontWeight:900, color:'#111', lineHeight:1 }}>
+              เฮงเฮงปังจัง
+            </motion.div>
+            <motion.div variants={fadeUp} style={{ fontSize:11, fontWeight:700, color:RED, letterSpacing:2, marginTop:3 }}>
+              MERCHANT PORTAL
+            </motion.div>
+          </motion.div>
+
+          <motion.div variants={stagger} initial="hidden" animate="show">
+            <motion.h1 variants={fadeUp} style={{ fontSize:22, fontWeight:900, color:'#111',
+              margin:'0 0 4px', textAlign:'center' }}>เข้าสู่ระบบ</motion.h1>
+            <motion.p variants={fadeUp} style={{ fontSize:12, color:'#9CA3AF', textAlign:'center',
+              margin:'0 0 24px', fontWeight:500 }}>จัดการร้านค้าและ QR Code ของคุณ</motion.p>
+
+            {error && (
+              <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+                style={{ background:'#fff1f0', border:`1px solid ${RED}40`, borderRadius:12,
+                  padding:'10px 14px', marginBottom:16, fontSize:12, fontWeight:700,
+                  color:RED, textAlign:'center' }}>⚠️ {error}</motion.div>
+            )}
+
+            {/* Phone */}
+            <motion.div variants={fadeUp} style={{ marginBottom:14 }}>
+              <label style={{ fontSize:12, fontWeight:800, color:'#374151', display:'block', marginBottom:6 }}>เบอร์โทรศัพท์</label>
+              <div style={{ position:'relative' }}>
+                <Phone size={15} style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'#9CA3AF' }}/>
+                <input type="tel" placeholder="0812345678"
+                  value={form.phone} onChange={e => setForm({...form, phone:e.target.value})}
+                  onKeyDown={e => e.key==='Enter' && handleSubmit()}
+                  style={{
+                    width:'100%', padding:'12px 14px 12px 38px', borderRadius:12,
+                    border:`1.5px solid ${form.phone ? RED+'60':'#E5E7EB'}`,
+                    fontSize:15, fontWeight:600, color:'#111', outline:'none',
+                    background:'rgba(255,255,255,.8)', fontFamily:'inherit', boxSizing:'border-box',
+                    transition:'border-color .2s, box-shadow .2s',
+                    boxShadow: form.phone ? `0 0 0 3px ${RED}12` : 'none',
+                  }}
+                />
               </div>
-              <div className="relative">
-                <input type={showPw ? 'text' : 'password'} required placeholder="••••••••"
-                  value={form.password} onChange={e => setForm({...form, password: e.target.value})}
-                  className={ic + ' pr-12'}
-                  onFocus={e => e.target.style.borderColor = '#fd1803'}
-                  onBlur={e => e.target.style.borderColor = '#e5e7eb'}/>
-                <button type="button" onClick={() => setShowPw(!showPw)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  {showPw ? <EyeOff size={17}/> : <Eye size={17}/>}
+            </motion.div>
+
+            {/* Password */}
+            <motion.div variants={fadeUp} style={{ marginBottom:14 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                <label style={{ fontSize:12, fontWeight:800, color:'#374151' }}>รหัสผ่าน</label>
+                <a href="#" style={{ fontSize:11, fontWeight:700, color:RED, textDecoration:'none' }}>ลืมรหัสผ่าน?</a>
+              </div>
+              <div style={{ position:'relative' }}>
+                <Lock size={15} style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'#9CA3AF' }}/>
+                <input type={showPw ? 'text':'password'} placeholder="••••••••"
+                  value={form.password} onChange={e => setForm({...form, password:e.target.value})}
+                  onKeyDown={e => e.key==='Enter' && handleSubmit()}
+                  style={{
+                    width:'100%', padding:'12px 42px 12px 38px', borderRadius:12,
+                    border:`1.5px solid ${form.password ? RED+'60':'#E5E7EB'}`,
+                    fontSize:15, fontWeight:600, color:'#111', outline:'none',
+                    background:'rgba(255,255,255,.8)', fontFamily:'inherit', boxSizing:'border-box',
+                    transition:'border-color .2s, box-shadow .2s',
+                    boxShadow: form.password ? `0 0 0 3px ${RED}12` : 'none',
+                  }}
+                />
+                <button type="button" onClick={() => setShowPw(!showPw)} style={{
+                  position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+                  background:'none', border:'none', cursor:'pointer', color:'#9CA3AF', padding:4,
+                }}>
+                  {showPw ? <EyeOff size={16}/> : <Eye size={16}/>}
                 </button>
               </div>
-            </div>
-            <button type="submit" disabled={loading}
-              className="w-full py-3.5 rounded-xl text-sm font-extrabold text-white hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2 mt-1 shadow-orange"
-              style={{background:'linear-gradient(135deg,#fd1803,#e01502)'}}>
-              {loading && <Loader2 size={16} className="animate-spin"/>}
-              {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ →'}
-            </button>
-          </form>
-          <p className="text-sm text-gray-500 text-center mt-6">
-            ยังไม่มีบัญชี?{' '}
-            <Link href="/register" className="font-bold transition-colors" style={{color:'#fd1803'}}>สมัครฟรีตอนนี้</Link>
-          </p>
+            </motion.div>
+
+            {/* Remember */}
+            <motion.div variants={fadeUp} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:20 }}>
+              <div onClick={() => setRemember(!remember)} style={{
+                width:18, height:18, borderRadius:5, cursor:'pointer', flexShrink:0,
+                border:`2px solid ${remember ? RED:'#D1D5DB'}`,
+                background: remember ? RED : '#fff',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                transition:'all .2s',
+              }}>
+                {remember && <span style={{ color:'#fff', fontSize:11 }}>✓</span>}
+              </div>
+              <span style={{ fontSize:12, fontWeight:600, color:'#6B7280', cursor:'pointer' }}
+                onClick={() => setRemember(!remember)}>จดจำการเข้าสู่ระบบ</span>
+            </motion.div>
+
+            {/* Submit */}
+            <motion.div variants={fadeUp}>
+              <motion.button onClick={handleSubmit} disabled={loading}
+                whileHover={!loading ? { scale:1.02, boxShadow:`0 12px 36px ${RED}55` } : {}}
+                whileTap={!loading ? { scale:.98 } : {}}
+                style={{
+                  width:'100%', padding:'14px', borderRadius:14, border:'none',
+                  background: loading ? '#f3f4f6' : `linear-gradient(135deg,${RED},#c01002)`,
+                  color: loading ? '#9CA3AF':'#fff',
+                  fontSize:16, fontWeight:900, cursor: loading ? 'not-allowed':'pointer',
+                  boxShadow: loading ? 'none' : `0 8px 28px ${RED}45`,
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                  fontFamily:'inherit', transition:'background .2s',
+                }}>
+                {loading && <Loader2 size={16} className="animate-spin"/>}
+                {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ →'}
+              </motion.button>
+            </motion.div>
+
+            <motion.div variants={fadeUp} style={{ textAlign:'center', marginTop:18 }}>
+              <span style={{ fontSize:13, color:'#9CA3AF', fontWeight:500 }}>ยังไม่มีบัญชี? </span>
+              <Link href="/register" style={{ fontSize:13, fontWeight:800, color:RED, textDecoration:'none' }}>สมัครใช้งานฟรี</Link>
+            </motion.div>
+            <motion.div variants={fadeUp} style={{ textAlign:'center', marginTop:8 }}>
+              <Link href="/" style={{ fontSize:12, color:'#9CA3AF', fontWeight:500, textDecoration:'none' }}>← กลับหน้าหลัก</Link>
+            </motion.div>
+          </motion.div>
+
         </div>
-      </div>
+      </motion.div>
+
     </div>
   )
 }
