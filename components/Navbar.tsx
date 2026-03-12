@@ -3,63 +3,112 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { Menu, X } from 'lucide-react'
 
+const RED = '#fd1803'
 const navLinks = [
-  { label: 'หน้าแรก',    href: '#hero' },
-  { label: 'ฟีเจอร์',    href: '#features' },
-  { label: 'วิธีทำงาน', href: '#how' },
-  { label: 'แพ็กเกจ',   href: '#pricing' },
-  { label: 'ช่วยเหลือ', href: '#faq' },
+  { label:'หน้าแรก',    href:'/' },
+  { label:'ฟีเจอร์',    href:'/#features' },
+  { label:'วิธีทำงาน', href:'/#how' },
 ]
 
 export default function Navbar() {
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [open, setOpen] = useState(false)
   return (
-    <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100 shadow-sm">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 h-16 flex items-center justify-between gap-6">
-        <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-[0_4px_20px_rgba(253,24,3,0.4)] transition-transform group-hover:rotate-[-8deg] group-hover:scale-110"
-            style={{background:'linear-gradient(135deg,#fd1803,#e01502)'}}>🐻</div>
+    <nav style={{
+      position:'sticky', top:0, zIndex:50,
+      background:'rgba(255,255,255,0.72)',
+      backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
+      borderBottom:'1px solid rgba(255,255,255,0.55)',
+      boxShadow:'0 2px 24px rgba(0,0,0,0.06)',
+    }}>
+      <div style={{ maxWidth:1200, margin:'0 auto', padding:'0 24px',
+        height:64, display:'flex', alignItems:'center', justifyContent:'space-between', gap:16 }}>
+
+        {/* Logo */}
+        <Link href="/" style={{ display:'flex', alignItems:'center', gap:10, textDecoration:'none' }}>
+          <div style={{
+            width:38, height:38, borderRadius:12,
+            background:`linear-gradient(135deg,${RED},#c01002)`,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:18, boxShadow:`0 4px 16px ${RED}45`,
+          }}>🐻</div>
           <div>
-            <div className="text-[15px] font-extrabold text-gray-900 leading-none">เฮงเฮงปังจัง</div>
-            <div className="text-[10px] font-bold leading-none mt-0.5" style={{color:'#fd1803'}}>Merchant Loyalty Platform</div>
+            <div style={{ fontSize:15, fontWeight:900, color:'#0a0a0f', lineHeight:1 }}>เฮงเฮงปังจัง</div>
+            <div style={{ fontSize:10, fontWeight:700, color:RED, letterSpacing:1, marginTop:2 }}>MERCHANT LOYALTY</div>
           </div>
         </Link>
-        <div className="hidden lg:flex items-center gap-1">
+
+        {/* Desktop Nav */}
+        <div style={{ display:'flex', alignItems:'center', gap:4 }} className="hidden lg:flex">
           {navLinks.map(l => (
-            <a key={l.label} href={l.href}
-              className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">
+            <a key={l.label} href={l.href} style={{
+              padding:'8px 16px', borderRadius:10,
+              fontSize:14, fontWeight:700, color:'#374151',
+              textDecoration:'none', transition:'all .2s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = RED; (e.currentTarget as HTMLElement).style.background = `${RED}0e` }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#374151'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
               {l.label}
             </a>
           ))}
         </div>
-        <div className="hidden lg:flex items-center gap-3">
-          <Link href="/login"
-            className="px-5 py-2 rounded-lg text-sm font-bold text-gray-700 border border-gray-200 hover:border-gray-300 bg-white transition-colors">
-            เข้าสู่ระบบ
-          </Link>
-          <Link href="/register"
-            className="px-5 py-2 rounded-lg text-sm font-bold text-white hover:opacity-90 transition-opacity shadow-[0_4px_20px_rgba(253,24,3,0.4)]"
-            style={{background:'linear-gradient(135deg,#fd1803,#e01502)'}}>
-            สมัครใช้งานฟรี →
-          </Link>
+
+        {/* Desktop Buttons */}
+        <div style={{ display:'flex', alignItems:'center', gap:10 }} className="hidden lg:flex">
+          <Link href="/login" style={{
+            padding:'9px 20px', borderRadius:12,
+            border:'1.5px solid rgba(0,0,0,.12)',
+            background:'rgba(255,255,255,.6)',
+            fontSize:14, fontWeight:700, color:'#374151',
+            textDecoration:'none', transition:'all .2s',
+          }}>เข้าสู่ระบบ</Link>
+          <Link href="/register" style={{
+            padding:'9px 20px', borderRadius:12,
+            background:`linear-gradient(135deg,${RED},#c01002)`,
+            fontSize:14, fontWeight:900, color:'#fff',
+            textDecoration:'none', boxShadow:`0 4px 18px ${RED}45`,
+            transition:'all .2s',
+          }}>สมัครฟรี →</Link>
         </div>
-        <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100" onClick={() => setMenuOpen(!menuOpen)}>
-          {menuOpen ? <X size={22} /> : <Menu size={22} />}
+
+        {/* Mobile hamburger */}
+        <button onClick={() => setOpen(!open)} style={{
+          display:'flex', background:'none', border:'none',
+          cursor:'pointer', padding:8, borderRadius:8,
+          color:'#374151',
+        }} className="lg:hidden">
+          {open ? <X size={22}/> : <Menu size={22}/>}
         </button>
       </div>
-      {menuOpen && (
-        <div className="lg:hidden bg-white border-t border-gray-100 px-6 pb-5">
-          <div className="flex flex-col gap-1 pt-3">
-            {navLinks.map(l => (
-              <a key={l.label} href={l.href}
-                className="px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                onClick={() => setMenuOpen(false)}>{l.label}</a>
-            ))}
-            <hr className="my-2 border-gray-100" />
-            <Link href="/login" className="px-3 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-lg">เข้าสู่ระบบ</Link>
-            <Link href="/register" className="px-3 py-2.5 text-sm font-bold text-white rounded-lg text-center"
-              style={{background:'linear-gradient(135deg,#fd1803,#e01502)'}}>สมัครใช้งานฟรี</Link>
-          </div>
+
+      {/* Mobile menu */}
+      {open && (
+        <div style={{
+          borderTop:'1px solid rgba(255,255,255,.5)',
+          background:'rgba(255,255,255,.88)',
+          backdropFilter:'blur(20px)',
+          padding:'12px 24px 20px',
+        }} className="lg:hidden">
+          {navLinks.map(l => (
+            <a key={l.label} href={l.href}
+              onClick={() => setOpen(false)}
+              style={{ display:'block', padding:'10px 8px', fontSize:14,
+                fontWeight:700, color:'#374151', textDecoration:'none', borderRadius:10 }}>
+              {l.label}
+            </a>
+          ))}
+          <div style={{ height:1, background:'rgba(0,0,0,.07)', margin:'10px 0' }}/>
+          <Link href="/login" onClick={() => setOpen(false)}
+            style={{ display:'block', padding:'10px 8px', fontSize:14,
+              fontWeight:700, color:'#374151', textDecoration:'none' }}>
+            เข้าสู่ระบบ
+          </Link>
+          <Link href="/register" onClick={() => setOpen(false)}
+            style={{ display:'block', margin:'8px 0 0',
+              padding:'12px', borderRadius:12, textAlign:'center',
+              background:`linear-gradient(135deg,${RED},#c01002)`,
+              fontSize:14, fontWeight:900, color:'#fff', textDecoration:'none' }}>
+            สมัครฟรี →
+          </Link>
         </div>
       )}
     </nav>
