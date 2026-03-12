@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand:  #fd1803;
+  --brand2: #e01502;
+  --dark:   #1C1C2E;
+  --navy:   #2D2D44;
+}
+
+html { scroll-behavior: smooth; }
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, #fd1803, #e01502);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .bg-brand-gradient {
+    background: linear-gradient(135deg, #fd1803 0%, #e01502 100%);
+  }
+  .bg-dark-gradient {
+    background: linear-gradient(160deg, #1C1C2E 0%, #2D2D44 55%, #3a2020 100%);
+  }
+  .shadow-orange {
+    box-shadow: 0 4px 20px rgba(253,24,3,.4);
+  }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeUp { animation: fadeUp 0.6s ease both; }
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+.delay-500 { animation-delay: 0.5s; }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.animate-blink { animation: blink 2s infinite; }
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
