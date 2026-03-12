@@ -63,7 +63,8 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center bg-gray-50 p-6">
+      <div className="flex-1 flex items-center justify-center p-6 relative overflow-hidden"
+        style={{background:'radial-gradient(ellipse 80% 80% at 0% 50%, rgba(253,24,3,0.35) 0%, transparent 55%), radial-gradient(ellipse 70% 70% at 100% 50%, rgba(59,130,246,0.25) 0%, transparent 55%), #f9fafb'}}>
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8 flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-orange"
