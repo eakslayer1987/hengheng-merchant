@@ -1,288 +1,295 @@
 'use client'
-// ─────────────────────────────────────────────────────────────
-//  app/scan/[qrId]/page.tsx
-//  ลูกค้าสแกน QR → เห็นข้อมูลร้าน → ลงทะเบียน/เข้าสู่ระบบ
-// ─────────────────────────────────────────────────────────────
 import { useEffect, useState, useTransition } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import { MapPin, Shield, ChevronRight, Loader2, Zap, Star } from 'lucide-react'
 import { apiFetch, type QRInfo } from '@/lib/api'
-import { MapPin, Phone, Shield, ChevronRight, Star, Loader2 } from 'lucide-react'
+
+const RED = '#fd1803'
+const stagger = { hidden:{}, show:{ transition:{ staggerChildren:.07 } } }
+const fadeUp  = { hidden:{ opacity:0, y:18 }, show:{ opacity:1, y:0, transition:{ duration:.5, ease:[0.22,1,0.36,1] } } }
 
 type Step = 'loading' | 'info' | 'phone' | 'otp' | 'error'
 
 export default function ScanPage() {
   const { qrId } = useParams<{ qrId: string }>()
   const router = useRouter()
-  const [step, setStep] = useState<Step>('loading')
+  const [step, setStep]     = useState<Step>('loading')
   const [qrInfo, setQrInfo] = useState<QRInfo | null>(null)
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState(['', '', '', '', '', ''])
+  const [phone, setPhone]   = useState('')
+  const [otp, setOtp]       = useState(['','','','','',''])
   const [errorMsg, setErrorMsg] = useState('')
   const [isPending, startTransition] = useTransition()
 
-  // ── Load QR info ───────────────────────────────────────────
   useEffect(() => {
     apiFetch<QRInfo>(`/qr/info.php?qr_id=${qrId}`)
-      .then(data => { setQrInfo(data); setStep('info') })
+      .then(d => { setQrInfo(d); setStep('info') })
       .catch(() => setStep('error'))
   }, [qrId])
 
-  // ── Send OTP ───────────────────────────────────────────────
   async function sendOtp() {
-    if (phone.replace(/\D/g, '').length < 10) {
-      setErrorMsg('กรุณากรอกเบอร์โทรให้ถูกต้อง')
-      return
-    }
+    if (phone.replace(/\D/g,'').length < 10) { setErrorMsg('กรุณากรอกเบอร์โทรให้ถูกต้อง'); return }
     setErrorMsg('')
     startTransition(async () => {
       try {
-        await apiFetch('/auth/send-otp.php', {
-          method: 'POST',
-          body: JSON.stringify({ phone: phone.replace(/\D/g, ''), qr_id: qrId }),
-        })
+        await apiFetch('/auth/send-otp.php', { method:'POST', body: JSON.stringify({ phone: phone.replace(/\D/g,''), qr_id: qrId }) })
         setStep('otp')
-      } catch {
-        setErrorMsg('ส่ง OTP ไม่สำเร็จ กรุณาลองใหม่')
-      }
+      } catch { setErrorMsg('ส่ง OTP ไม่สำเร็จ กรุณาลองใหม่') }
     })
   }
 
-  // ── Verify OTP ─────────────────────────────────────────────
   async function verifyOtp() {
     const code = otp.join('')
     if (code.length < 6) return
     startTransition(async () => {
       try {
-        const res = await apiFetch<{ token: string; is_new: boolean }>(
-          '/auth/verify-otp.php',
-          { method: 'POST', body: JSON.stringify({ phone: phone.replace(/\D/g, ''), otp: code, qr_id: qrId }) }
-        )
+        const res = await apiFetch<{ token:string; is_new:boolean }>('/auth/verify-otp.php', {
+          method:'POST', body: JSON.stringify({ phone: phone.replace(/\D/g,''), otp: code, qr_id: qrId })
+        })
         localStorage.setItem('hh_token', res.token)
         localStorage.setItem('hh_qr', qrId)
         router.push(`/spin?qr=${qrId}`)
-      } catch {
-        setErrorMsg('รหัส OTP ไม่ถูกต้อง')
-        setOtp(['', '', '', '', '', ''])
-      }
+      } catch { setErrorMsg('รหัส OTP ไม่ถูกต้อง'); setOtp(['','','','','','']) }
     })
   }
 
-  // ── OTP input handler ──────────────────────────────────────
   function handleOtpChange(idx: number, val: string) {
     if (!/^\d?$/.test(val)) return
-    const next = [...otp]
-    next[idx] = val
-    setOtp(next)
-    if (val && idx < 5) {
-      document.getElementById(`otp-${idx + 1}`)?.focus()
-    }
-    if (next.join('').length === 6) {
-      setTimeout(verifyOtp, 100)
-    }
+    const next = [...otp]; next[idx] = val; setOtp(next)
+    if (val && idx < 5) document.getElementById(`otp-${idx+1}`)?.focus()
+    if (next.join('').length === 6) setTimeout(verifyOtp, 100)
   }
 
-  // ── Remaining bar ──────────────────────────────────────────
   const pct = qrInfo ? Math.round((qrInfo.remaining_codes / qrInfo.total_codes) * 100) : 0
 
-  // ══════════════════════════════════════════════════════════
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10">
+    <div style={{ minHeight:'100vh', overflow:'hidden', position:'relative', display:'flex', alignItems:'center', justifyContent:'center', padding:'24px 16px' }}>
 
-      {/* ── LOADING ── */}
-      {step === 'loading' && (
-        <div className="glass-card p-10 flex flex-col items-center gap-4">
-          <Loader2 className="animate-spin text-red-500" size={40} />
-          <p className="text-gray-500 font-medium">กำลังโหลดข้อมูลร้าน…</p>
-        </div>
-      )}
+      {/* Thai flag bg */}
+      <div style={{
+        position:'fixed', inset:0, zIndex:0,
+        background:`
+          radial-gradient(ellipse 60% 90% at -5% 50%, rgba(220,10,10,.82) 0%, rgba(185,5,5,.45) 35%, transparent 62%),
+          radial-gradient(ellipse 50% 80% at 105% 50%, rgba(22,55,170,.78) 0%, rgba(15,40,130,.42) 35%, transparent 62%),
+          radial-gradient(ellipse 55% 50% at 50% 50%, rgba(255,255,255,1) 0%, #eaeaf4 100%)
+        `,
+      }}/>
+      <div style={{ position:'fixed', inset:0, zIndex:1, pointerEvents:'none',
+        background:`radial-gradient(ellipse 40% 55% at 50% 50%, rgba(255,255,255,.6) 0%, transparent 65%)`,
+        animation:'thaiRay 9s ease-in-out infinite alternate' }}/>
 
-      {/* ── ERROR ── */}
-      {step === 'error' && (
-        <div className="glass-card p-10 text-center max-w-sm w-full">
-          <div className="text-5xl mb-4">😢</div>
-          <h3 className="text-xl font-extrabold text-gray-900 mb-2">QR Code หมดอายุ</h3>
-          <p className="text-gray-500">QR นี้ใช้งานไม่ได้แล้ว หรือโควต้าหมดแล้วครับ</p>
-        </div>
-      )}
+      <div style={{ position:'relative', zIndex:10, width:'100%', maxWidth:420 }}>
+        <AnimatePresence mode="wait">
 
-      {/* ── INFO STEP ── */}
-      {step === 'info' && qrInfo && (
-        <div className="w-full max-w-sm flex flex-col gap-4">
-          {/* Header Brand */}
-          <div className="text-center mb-2">
-            <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur rounded-full px-4 py-1.5 shadow-sm text-xs font-bold text-red-500 border border-red-100 mb-3">
-              🐻 เฮงเฮงปังจัง Loyalty
-            </div>
-            <h1 className="text-3xl font-black text-gray-900 leading-tight">ยินดีต้อนรับ!</h1>
-            <p className="text-gray-500 text-sm mt-1">สแกนเพื่อลุ้นรับสิทธิ์พิเศษ</p>
-          </div>
-
-          {/* Merchant Card */}
-          <div className="glass-card p-5">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 shadow-md"
-                style={{ background: 'linear-gradient(135deg,#fd1803,#e01502)' }}>
-                🍽️
+          {/* Loading */}
+          {step === 'loading' && (
+            <motion.div key="loading" initial={{ opacity:0, scale:.94 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0, scale:.9 }}
+              className="glass-card" style={{ padding:48, textAlign:'center' }}>
+              <div style={{ width:64, height:64, borderRadius:18, background:`linear-gradient(135deg,${RED},#c01002)`,
+                display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px',
+                boxShadow:`0 8px 32px ${RED}55` }}>
+                <Loader2 className="animate-spin" color="#fff" size={28}/>
               </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-extrabold text-gray-900 leading-tight">{qrInfo.merchant_name}</h2>
-                <div className="flex items-center gap-1 mt-1 text-gray-400 text-xs">
-                  <MapPin size={11} />
-                  <span className="truncate">{qrInfo.merchant_address || 'ร้านค้าพาร์ทเนอร์'}</span>
+              <p style={{ fontWeight:600, color:'#6B7280' }}>กำลังโหลดข้อมูลร้าน…</p>
+            </motion.div>
+          )}
+
+          {/* Error */}
+          {step === 'error' && (
+            <motion.div key="error" initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }}
+              className="glass-card" style={{ padding:48, textAlign:'center' }}>
+              <div style={{ fontSize:56, marginBottom:12 }}>😢</div>
+              <h3 style={{ fontSize:20, fontWeight:900, color:'#0a0a0f', marginBottom:8 }}>QR หมดอายุแล้ว</h3>
+              <p style={{ fontSize:13, color:'#9CA3AF' }}>โควต้าของร้านนี้หมดแล้ว หรือ QR ไม่ถูกต้อง</p>
+            </motion.div>
+          )}
+
+          {/* Info */}
+          {step === 'info' && qrInfo && (
+            <motion.div key="info" variants={stagger} initial="hidden" animate="show" style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              {/* Brand pill */}
+              <motion.div variants={fadeUp} style={{ textAlign:'center' }}>
+                <span style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 16px', borderRadius:999,
+                  background:'rgba(255,255,255,0.85)', border:`1px solid ${RED}30`, fontSize:11, fontWeight:800,
+                  color:RED, backdropFilter:'blur(12px)', letterSpacing:1 }}>
+                  🐻 เฮงเฮงปังจัง LOYALTY
+                </span>
+              </motion.div>
+
+              {/* Hero */}
+              <motion.div variants={fadeUp} style={{ textAlign:'center' }}>
+                <h1 style={{ fontSize:'clamp(2rem,8vw,2.8rem)', fontWeight:900, color:'#0a0a0f', lineHeight:1, marginBottom:4 }}>ยินดีต้อนรับ!</h1>
+                <p style={{ fontSize:13, color:'#6B7280', fontWeight:500 }}>สแกนแล้วลุ้นรับสิทธิ์ทันที</p>
+              </motion.div>
+
+              {/* Merchant card */}
+              <motion.div variants={fadeUp} className="glass-card" style={{ padding:'20px 20px' }}>
+                <div style={{ display:'flex', gap:14, alignItems:'flex-start', marginBottom:14 }}>
+                  <div style={{ width:52, height:52, borderRadius:16, background:`linear-gradient(135deg,${RED},#c01002)`,
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0,
+                    boxShadow:`0 6px 20px ${RED}45` }}>🍽️</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:17, fontWeight:900, color:'#0a0a0f', lineHeight:1.2 }}>{qrInfo.merchant_name}</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:4, color:'#9CA3AF', fontSize:12 }}>
+                      <MapPin size={11}/><span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{qrInfo.merchant_address || 'ร้านค้าพาร์ทเนอร์'}</span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:2, marginTop:6 }}>
+                      {[1,2,3,4,5].map(i => <Star key={i} size={10} style={{ fill:'#F59E0B', color:'#F59E0B' }}/>)}
+                      <span style={{ fontSize:10, color:'#9CA3AF', marginLeft:4 }}>ร้านรับรอง</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 mt-1">
-                  {[1,2,3,4,5].map(i => (
-                    <Star key={i} size={10} className="fill-yellow-400 text-yellow-400" />
+                {/* Quota */}
+                <div>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:6 }}>
+                    <span style={{ color:'#6B7280', fontWeight:600 }}>สิทธิ์คงเหลือ</span>
+                    <span style={{ fontWeight:900, color:RED }}>{qrInfo.remaining_codes} / {qrInfo.total_codes}</span>
+                  </div>
+                  <div style={{ height:7, borderRadius:999, background:'#F3F4F6', overflow:'hidden' }}>
+                    <motion.div initial={{ width:0 }} animate={{ width:`${pct}%` }} transition={{ duration:1, ease:'easeOut' }}
+                      style={{ height:'100%', borderRadius:999, background:`linear-gradient(90deg,${RED},#ff6b4a)` }}/>
+                  </div>
+                  {qrInfo.remaining_codes <= 5 && (
+                    <p style={{ fontSize:11, fontWeight:800, color:RED, textAlign:'center', marginTop:6 }} className="animate-pulse">⚡ เหลือน้อยมาก!</p>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Prize teaser */}
+              <motion.div variants={fadeUp} className="glass-card" style={{ padding:'16px 20px' }}>
+                <p style={{ fontSize:10, fontWeight:800, color:'#9CA3AF', letterSpacing:2, textTransform:'uppercase', marginBottom:12 }}>สิทธิ์ที่ลุ้นได้</p>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                  {[
+                    { e:'🏷️', l:'ส่วนลด 10 บาท', s:'โค้ดซื้อซอส' },
+                    { e:'🍛', l:'ทานฟรีมื้อนี้',   s:'รับได้เลย!' },
+                    { e:'🎟️', l:'ลุ้นโชคใหญ่',    s:'สะสมสิทธิ์' },
+                    { e:'⭐', l:'คะแนนสะสม',       s:'แลกพรีเมียม' },
+                  ].map(p => (
+                    <div key={p.l} className="glass-surface" style={{ borderRadius:16, padding:'10px 12px', textAlign:'center' }}>
+                      <div style={{ fontSize:20, marginBottom:4 }}>{p.e}</div>
+                      <div style={{ fontSize:11, fontWeight:800, color:'#374151', lineHeight:1.3 }}>{p.l}</div>
+                      <div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>{p.s}</div>
+                    </div>
                   ))}
-                  <span className="text-xs text-gray-400 ml-1">ร้านรับรอง</span>
                 </div>
-              </div>
-            </div>
+              </motion.div>
 
-            {/* Quota bar */}
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-gray-400 mb-1.5">
-                <span>สิทธิ์คงเหลือ</span>
-                <span className="font-bold text-red-500">{qrInfo.remaining_codes} / {qrInfo.total_codes}</span>
-              </div>
-              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#fd1803,#ff6b4a)' }} />
-              </div>
-              {qrInfo.remaining_codes <= 5 && (
-                <p className="text-xs text-red-500 font-medium mt-1.5 text-center animate-pulse">
-                  ⚡ เหลือสิทธิ์น้อยมาก! รีบด่วน
-                </p>
-              )}
-            </div>
-          </div>
+              {/* CTA */}
+              <motion.div variants={fadeUp}>
+                <motion.button onClick={() => setStep('phone')}
+                  whileHover={{ scale:1.02, boxShadow:`0 14px 40px ${RED}55` }}
+                  whileTap={{ scale:.98 }}
+                  style={{ width:'100%', height:56, borderRadius:16, border:'none',
+                    background:`linear-gradient(135deg,${RED},#c01002)`, color:'#fff',
+                    fontSize:17, fontWeight:900, cursor:'pointer', display:'flex',
+                    alignItems:'center', justifyContent:'center', gap:8,
+                    boxShadow:`0 8px 32px ${RED}45` }}>
+                  รับสิทธิ์เลย! <ChevronRight size={20}/>
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          )}
 
-          {/* Prize teaser */}
-          <div className="glass-card p-4">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">ลุ้นรับ</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { icon: '🏷️', label: 'ส่วนลด 10 บาท', sub: 'โค้ดลดค่าซอส' },
-                { icon: '🍛', label: 'ทานฟรีมื้อนี้', sub: 'ลุ้นได้เลย!' },
-                { icon: '🎟️', label: 'ลุ้นโชคใหญ่', sub: 'สะสมสิทธิ์' },
-                { icon: '⭐', label: 'คะแนนสะสม', sub: 'แลกของพรีเมียม' },
-              ].map(p => (
-                <div key={p.label} className="bg-white/60 rounded-xl p-2.5 text-center">
-                  <div className="text-xl mb-0.5">{p.icon}</div>
-                  <div className="text-xs font-bold text-gray-800">{p.label}</div>
-                  <div className="text-[10px] text-gray-400">{p.sub}</div>
+          {/* Phone */}
+          {step === 'phone' && (
+            <motion.div key="phone" initial={{ opacity:0, x:40 }} animate={{ opacity:1, x:0 }}
+              exit={{ opacity:0, x:-40 }} transition={{ duration:.4, ease:[0.22,1,0.36,1] }}>
+              <div style={{ textAlign:'center', marginBottom:24 }}>
+                <motion.div initial={{ scale:.5, opacity:0 }} animate={{ scale:1, opacity:1 }}
+                  transition={{ type:'spring', bounce:.4 }}
+                  style={{ width:72, height:72, borderRadius:22, background:`linear-gradient(135deg,${RED},#c01002)`,
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:32,
+                    margin:'0 auto 16px', boxShadow:`0 8px 32px ${RED}55` }}>📱</motion.div>
+                <h2 style={{ fontSize:24, fontWeight:900, color:'#0a0a0f', marginBottom:4 }}>กรอกเบอร์โทร</h2>
+                <p style={{ fontSize:13, color:'#9CA3AF' }}>รับรหัส OTP เพื่อยืนยันตัวตน</p>
+              </div>
+              <motion.div className="glass-card" style={{ padding:'28px 24px' }}
+                initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:.1 }}>
+                <label style={{ fontSize:12, fontWeight:800, color:'#374151', display:'block', marginBottom:6 }}>เบอร์โทรศัพท์</label>
+                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                  onKeyDown={e => e.key==='Enter' && sendOtp()} placeholder="0xx-xxx-xxxx" maxLength={12}
+                  style={{ width:'100%', height:52, padding:'0 18px', borderRadius:14, fontSize:17,
+                    fontWeight:800, color:'#111', outline:'none', boxSizing:'border-box', letterSpacing:'0.1em',
+                    border:`1.5px solid ${phone.length > 0 ? RED+'55':'#E5E7EB'}`,
+                    background:'rgba(255,255,255,.8)', transition:'all .2s',
+                    boxShadow: phone.length > 0 ? `0 0 0 3px ${RED}12` : 'none' }}/>
+                {errorMsg && <p style={{ fontSize:12, color:RED, fontWeight:700, marginTop:8 }}>{errorMsg}</p>}
+                <div style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'10px 12px',
+                  borderRadius:12, marginTop:12, background:'rgba(59,130,246,0.06)', border:'1px solid rgba(59,130,246,0.15)' }}>
+                  <Shield size={13} color="#60A5FA" style={{ marginTop:1, flexShrink:0 }}/>
+                  <p style={{ fontSize:11, color:'#60A5FA', lineHeight:1.6, margin:0 }}>เบอร์ของคุณใช้ยืนยันตัวตนเท่านั้น ไม่มีการเปิดเผยต่อบุคคลที่สาม</p>
                 </div>
-              ))}
-            </div>
-          </div>
+                <motion.button onClick={sendOtp} disabled={isPending}
+                  whileHover={!isPending ? { scale:1.02, boxShadow:`0 12px 36px ${RED}50` } : {}}
+                  whileTap={!isPending ? { scale:.98 } : {}}
+                  style={{ width:'100%', height:52, marginTop:16, borderRadius:14, border:'none',
+                    background: isPending ? '#f3f4f6' : `linear-gradient(135deg,${RED},#c01002)`,
+                    color: isPending ? '#9CA3AF':'#fff', fontSize:16, fontWeight:900,
+                    cursor: isPending ? 'not-allowed':'pointer', display:'flex',
+                    alignItems:'center', justifyContent:'center', gap:8,
+                    boxShadow: isPending ? 'none' : `0 8px 28px ${RED}45`, transition:'background .2s' }}>
+                  {isPending ? <><Loader2 size={17} className="animate-spin"/> กำลังส่ง…</> : 'ส่ง OTP →'}
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          )}
 
-          <button
-            onClick={() => setStep('phone')}
-            className="w-full h-14 rounded-2xl text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-[0_8px_32px_rgba(253,24,3,0.4)] active:scale-95 transition-transform"
-            style={{ background: 'linear-gradient(135deg,#fd1803,#e01502)' }}>
-            รับสิทธิ์เลย! <ChevronRight size={20} />
-          </button>
-        </div>
-      )}
-
-      {/* ── PHONE STEP ── */}
-      {step === 'phone' && (
-        <div className="w-full max-w-sm flex flex-col gap-5">
-          <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3 shadow-md"
-              style={{ background: 'linear-gradient(135deg,#fd1803,#e01502)' }}>📱</div>
-            <h2 className="text-2xl font-black text-gray-900">กรอกเบอร์โทรศัพท์</h2>
-            <p className="text-gray-400 text-sm mt-1">เพื่อรับ OTP ยืนยันตัวตน</p>
-          </div>
-
-          <div className="glass-card p-5 flex flex-col gap-4">
-            <div>
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">
-                <Phone size={11} className="inline mr-1" />เบอร์โทรศัพท์
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sendOtp()}
-                placeholder="0xx-xxx-xxxx"
-                maxLength={12}
-                className="w-full h-12 px-4 rounded-xl border-2 border-gray-100 focus:border-red-400 outline-none text-gray-900 font-bold text-lg tracking-widest bg-white/80 transition-colors"
-              />
-              {errorMsg && <p className="text-red-500 text-xs mt-1.5 font-medium">{errorMsg}</p>}
-            </div>
-
-            <div className="flex items-start gap-2 bg-blue-50 rounded-xl p-3">
-              <Shield size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-blue-500 leading-relaxed">
-                เบอร์โทรของคุณจะถูกใช้เพื่อยืนยันตัวตนและรับสิทธิ์เท่านั้น ไม่มีการเปิดเผยต่อบุคคลที่สาม
-              </p>
-            </div>
-
-            <button
-              onClick={sendOtp}
-              disabled={isPending}
-              className="w-full h-12 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(253,24,3,0.35)] disabled:opacity-60 transition-opacity"
-              style={{ background: 'linear-gradient(135deg,#fd1803,#e01502)' }}>
-              {isPending ? <Loader2 size={18} className="animate-spin" /> : null}
-              {isPending ? 'กำลังส่ง OTP…' : 'ส่ง OTP →'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── OTP STEP ── */}
-      {step === 'otp' && (
-        <div className="w-full max-w-sm flex flex-col gap-5">
-          <div className="text-center">
-            <div className="text-4xl mb-3">💬</div>
-            <h2 className="text-2xl font-black text-gray-900">กรอกรหัส OTP</h2>
-            <p className="text-gray-400 text-sm mt-1">
-              ส่งไปที่ <strong className="text-gray-700">{phone}</strong>
-            </p>
-          </div>
-
-          <div className="glass-card p-6 flex flex-col items-center gap-5">
-            {/* OTP boxes */}
-            <div className="flex gap-2.5">
-              {otp.map((v, i) => (
-                <input
-                  key={i}
-                  id={`otp-${i}`}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={v}
-                  onChange={e => handleOtpChange(i, e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Backspace' && !v && i > 0)
-                      document.getElementById(`otp-${i - 1}`)?.focus()
-                  }}
-                  className="w-11 h-14 rounded-xl border-2 text-center text-xl font-black outline-none transition-colors bg-white/80"
-                  style={{ borderColor: v ? '#fd1803' : '#e5e7eb', color: '#111' }}
-                />
-              ))}
-            </div>
-
-            {errorMsg && (
-              <p className="text-red-500 text-sm font-medium text-center">{errorMsg}</p>
-            )}
-
-            {isPending && (
-              <div className="flex items-center gap-2 text-gray-400 text-sm">
-                <Loader2 size={16} className="animate-spin" />
-                กำลังตรวจสอบ…
+          {/* OTP */}
+          {step === 'otp' && (
+            <motion.div key="otp" initial={{ opacity:0, x:40 }} animate={{ opacity:1, x:0 }}
+              exit={{ opacity:0, x:-40 }} transition={{ duration:.4, ease:[0.22,1,0.36,1] }}>
+              <div style={{ textAlign:'center', marginBottom:24 }}>
+                <div style={{ fontSize:48, marginBottom:12 }}>💬</div>
+                <h2 style={{ fontSize:24, fontWeight:900, color:'#0a0a0f', marginBottom:4 }}>กรอกรหัส OTP</h2>
+                <p style={{ fontSize:13, color:'#9CA3AF' }}>ส่งไปที่ <strong style={{ color:'#374151' }}>{phone}</strong></p>
               </div>
-            )}
+              <div className="glass-card" style={{ padding:'28px 24px', display:'flex', flexDirection:'column', alignItems:'center', gap:20 }}>
+                <div style={{ display:'flex', gap:10 }}>
+                  {otp.map((v, i) => (
+                    <input key={i} id={`otp-${i}`} type="text" inputMode="numeric" maxLength={1} value={v}
+                      onChange={e => handleOtpChange(i, e.target.value)}
+                      onKeyDown={e => e.key==='Backspace' && !v && i > 0 && document.getElementById(`otp-${i-1}`)?.focus()}
+                      style={{ width:44, height:54, borderRadius:12, textAlign:'center',
+                        fontSize:22, fontWeight:900, color:'#111', outline:'none',
+                        border:`2px solid ${v ? RED : '#E5E7EB'}`,
+                        background:'rgba(255,255,255,.85)', transition:'all .15s',
+                        boxShadow: v ? `0 0 0 3px ${RED}12` : 'none' }}/>
+                  ))}
+                </div>
+                {errorMsg && <p style={{ fontSize:13, color:RED, fontWeight:700 }}>{errorMsg}</p>}
+                {isPending && (
+                  <div style={{ display:'flex', alignItems:'center', gap:8, color:'#9CA3AF', fontSize:13 }}>
+                    <Loader2 size={15} className="animate-spin"/> กำลังตรวจสอบ…
+                  </div>
+                )}
+                <button onClick={() => setStep('phone')}
+                  style={{ background:'none', border:'none', cursor:'pointer',
+                    fontSize:12, color:'#9CA3AF', fontWeight:600 }}>
+                  ไม่ได้รับ OTP? ส่งใหม่
+                </button>
+              </div>
+            </motion.div>
+          )}
 
-            <button
-              onClick={() => setStep('phone')}
-              className="text-xs text-gray-400 hover:text-red-500 transition-colors">
-              ไม่ได้รับ OTP? ส่งใหม่
-            </button>
-          </div>
-        </div>
-      )}
+        </AnimatePresence>
+
+        {/* Footer */}
+        {(step === 'info' || step === 'phone' || step === 'otp') && (
+          <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:.5 }}
+            style={{ textAlign:'center', marginTop:16, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            <Zap size={11} color="#F59E0B"/>
+            <span style={{ fontSize:11, color:'#9CA3AF' }}>Loyalty by หมีปรุง × เฮงเฮง</span>
+          </motion.div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes thaiRay {
+          0%   { opacity:.7; transform:scaleY(1) translateY(0); }
+          50%  { opacity:1;  transform:scaleY(1.06) translateY(-1.5%); }
+          100% { opacity:.75;transform:scaleY(.97) translateY(1.5%); }
+        }
+      `}</style>
     </div>
   )
 }
