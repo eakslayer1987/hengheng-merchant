@@ -1,36 +1,30 @@
 'use client'
-// ─────────────────────────────────────────────────────────────
-//  app/result/page.tsx
-//  แสดงผลรางวัลที่ได้ + ticket โชคใหญ่ + share
-// ─────────────────────────────────────────────────────────────
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { type SpinResult } from '@/lib/api'
 import { Share2, Home, RotateCcw, Ticket, Copy, Check } from 'lucide-react'
 
-// ── Confetti particle ─────────────────────────────────────────
 interface Particle {
   x: number; y: number; vx: number; vy: number
   color: string; size: number; rotation: number; vr: number; life: number
 }
 
-const CONFETTI_COLORS = ['#fd1803','#e8a820','#10b981','#3b82f6','#8b5cf6','#ec4899','#f59e0b']
+const CONFETTI_COLORS = ['#fd1803','#e8a820','#10b981','#3b82f6','#8b5cf6','#ec4899']
 
 function useConfetti(active: boolean, canvasRef: React.RefObject<HTMLCanvasElement | null>) {
-  const particles = useRef<Particle[]>([])
-  const rafRef = useRef(0)
-
   useEffect(() => {
     if (!active) return
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d'); if (!ctx) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
 
-    // Spawn burst
+    const particles: Particle[] = []
     for (let i = 0; i < 120; i++) {
-      particles.current.push({
+      particles.push({
         x: Math.random() * canvas.width,
         y: -10,
         vx: (Math.random() - 0.5) * 6,
@@ -43,33 +37,36 @@ function useConfetti(active: boolean, canvasRef: React.RefObject<HTMLCanvasEleme
       })
     }
 
-    const c = canvas; function draw() {
-      ctx.clearRect(0, 0, c.width, c.height)
-      particles.current = particles.current.filter(p => p.life > 0)
-      particles.current.forEach(p => {
+    // capture non-null refs for use inside draw
+    const safeCtx = ctx
+    const safeCanvas = canvas
+    let raf = 0
+
+    const draw = () => {
+      safeCtx.clearRect(0, 0, safeCanvas.width, safeCanvas.height)
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]
         p.x += p.vx
         p.y += p.vy
-        p.vy += 0.12 // gravity
+        p.vy += 0.12
         p.rotation += p.vr
         p.life -= 0.007
-        ctx.save()
-        ctx.translate(p.x, p.y)
-        ctx.rotate((p.rotation * Math.PI) / 180)
-        ctx.globalAlpha = p.life
-        ctx.fillStyle = p.color
-        ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2)
-        ctx.restore()
-      })
-      if (particles.current.length > 0) {
-        rafRef.current = requestAnimationFrame(draw)
+        if (p.life <= 0) { particles.splice(i, 1); continue }
+        safeCtx.save()
+        safeCtx.translate(p.x, p.y)
+        safeCtx.rotate((p.rotation * Math.PI) / 180)
+        safeCtx.globalAlpha = p.life
+        safeCtx.fillStyle = p.color
+        safeCtx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2)
+        safeCtx.restore()
       }
+      if (particles.length > 0) raf = requestAnimationFrame(draw)
     }
-    rafRef.current = requestAnimationFrame(draw)
-    return () => cancelAnimationFrame(rafRef.current)
+    raf = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(raf)
   }, [active, canvasRef])
 }
 
-// ── Prize display config ──────────────────────────────────────
 const PRIZE_CONFIG = {
   discount: {
     emoji: '🏷️',
@@ -105,7 +102,6 @@ const PRIZE_CONFIG = {
   },
 } as const
 
-// ══════════════════════════════════════════════════════════════
 export default function ResultPage() {
   const router = useRouter()
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -113,12 +109,10 @@ export default function ResultPage() {
   const [copied, setCopied] = useState(false)
   const [shown, setShown] = useState(false)
 
-  // Load result from localStorage (set by /spin)
   useEffect(() => {
     const raw = localStorage.getItem('hh_result')
     if (!raw) { router.replace('/'); return }
-    const data = JSON.parse(raw) as SpinResult
-    setResult(data)
+    setResult(JSON.parse(raw) as SpinResult)
     setTimeout(() => setShown(true), 100)
   }, [router])
 
@@ -142,65 +136,36 @@ export default function ResultPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function shareLine() {
-    const text = encodeURIComponent(`ฉันเพิ่งลุ้นได้ "${result?.prize_name}" จากหมีปรุง! 🐻 มาลองสแกนกันเถอะ!`)
-    window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(window.location.href)}&text=${text}`)
-  }
-
-  // ══════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10 overflow-hidden">
-      {/* Confetti canvas */}
-      <canvas
-        ref={canvasRef}
-        className="fixed inset-0 pointer-events-none z-50"
-        style={{ mixBlendMode: 'multiply' }}
-      />
+      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />
 
       <div className={`w-full max-w-sm flex flex-col items-center gap-5 transition-all duration-700 ${shown ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
 
-        {/* Brand */}
         <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur rounded-full px-4 py-1.5 shadow-sm text-xs font-bold text-red-500 border border-red-100">
           🐻 เฮงเฮงปังจัง
         </div>
 
-        {/* Prize hero */}
-        <div className="glass-card w-full text-center p-8"
-          style={{ boxShadow: cfg.shadow }}>
-
-          {/* Prize icon */}
+        <div className="glass-card w-full text-center p-8" style={{ boxShadow: cfg.shadow }}>
           <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl mx-auto mb-5 shadow-xl"
-            style={{
-              background: cfg.gradient,
-              transform: shown ? 'scale(1) rotate(0deg)' : 'scale(0.5) rotate(-20deg)',
-              transition: 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.2s',
-            }}>
+            style={{ background: cfg.gradient, transform: shown ? 'scale(1)' : 'scale(0.5)', transition: 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.2s' }}>
             {cfg.emoji}
           </div>
 
-          {isWin ? (
-            <p className="text-xs font-bold text-red-500 uppercase tracking-widest mb-1">🎉 ยินดีด้วย!</p>
-          ) : (
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">ผลการลุ้น</p>
-          )}
+          {isWin
+            ? <p className="text-xs font-bold text-red-500 uppercase tracking-widest mb-1">🎉 ยินดีด้วย!</p>
+            : <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">ผลการลุ้น</p>
+          }
 
-          <h1 className="text-3xl font-black text-gray-900 mb-2">
-            {cfg.title(result.prize_value)}
-          </h1>
+          <h1 className="text-3xl font-black text-gray-900 mb-2">{cfg.title(result.prize_value)}</h1>
           <p className="text-gray-500 text-sm leading-relaxed">{cfg.desc}</p>
 
-          {/* Code box (for discount / points) */}
           {(result.prize_type === 'discount' || result.prize_type === 'points') && result.code_id && (
             <div className={`mt-5 ${cfg.bg} rounded-2xl p-4`}>
               <p className="text-xs text-gray-400 font-medium mb-2">รหัสของคุณ</p>
               <div className="flex items-center justify-center gap-2">
-                <code className="text-xl font-black text-gray-900 tracking-[0.2em]">
-                  {result.code_id}
-                </code>
-                <button
-                  onClick={copyCode}
-                  className="p-1.5 rounded-lg bg-white shadow-sm hover:shadow transition-shadow"
-                  title="คัดลอก">
+                <code className="text-xl font-black text-gray-900 tracking-[0.2em]">{result.code_id}</code>
+                <button onClick={copyCode} className="p-1.5 rounded-lg bg-white shadow-sm">
                   {copied ? <Check size={15} className="text-green-500" /> : <Copy size={15} className="text-gray-400" />}
                 </button>
               </div>
@@ -208,13 +173,10 @@ export default function ResultPage() {
             </div>
           )}
 
-          {/* Free meal instruction */}
           {result.prize_type === 'free_meal' && (
             <div className="mt-5 bg-yellow-50 rounded-2xl p-4">
               <p className="text-sm font-bold text-yellow-700 mb-1">วิธีรับสิทธิ์</p>
-              <p className="text-xs text-yellow-600 leading-relaxed">
-                แสดงหน้าจอนี้ให้พนักงาน<br/>หน้าแคชเชียร์เพื่อรับสิทธิ์ทานฟรี
-              </p>
+              <p className="text-xs text-yellow-600 leading-relaxed">แสดงหน้าจอนี้ให้พนักงานหน้าแคชเชียร์</p>
               <div className="mt-3 bg-yellow-100 rounded-xl px-4 py-2 text-xs font-bold text-yellow-700">
                 อ้างอิง: {result.code_id}
               </div>
@@ -222,18 +184,15 @@ export default function ResultPage() {
           )}
         </div>
 
-        {/* Big prize ticket */}
         {result.big_prize_ticket && (
           <div className="glass-card w-full p-4"
             style={{ background: 'linear-gradient(135deg,rgba(29,5,5,0.9),rgba(45,15,5,0.85))' }}>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg,#e8a820,#d4900d)' }}>
-                🎟️
-              </div>
+                style={{ background: 'linear-gradient(135deg,#e8a820,#d4900d)' }}>🎟️</div>
               <div>
                 <p className="text-xs font-bold text-yellow-400 uppercase tracking-wider">ลุ้นโชคใหญ่</p>
-                <p className="text-white font-extrabold text-base leading-tight mt-0.5">ได้รับ ticket แล้ว!</p>
+                <p className="text-white font-extrabold text-base mt-0.5">ได้รับ ticket แล้ว!</p>
                 <p className="text-white/60 text-xs mt-0.5">เลขที่: {result.big_prize_ticket}</p>
               </div>
               <Ticket size={20} className="text-yellow-400 ml-auto flex-shrink-0" />
@@ -241,43 +200,27 @@ export default function ResultPage() {
           </div>
         )}
 
-        {/* Action buttons */}
         <div className="w-full flex flex-col gap-3">
-
-          {/* Share LINE */}
           <button
-            onClick={shareLine}
-            className="w-full h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border-2 transition-all hover:shadow-md"
+            onClick={() => {
+              const text = encodeURIComponent(`ฉันเพิ่งลุ้นได้ "${result.prize_name}" จากหมีปรุง! 🐻`)
+              window.open(`https://social-plugins.line.me/lineit/share?text=${text}`)
+            }}
+            className="w-full h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border-2"
             style={{ borderColor: '#00B900', color: '#00B900', background: '#f0fff0' }}>
-            <Share2 size={16} />
-            แชร์ผลให้เพื่อนทาง LINE
+            <Share2 size={16} /> แชร์ผลให้เพื่อนทาง LINE
           </button>
 
-          {/* Share generic */}
-          <button
-            onClick={() => navigator.share?.({ title: 'เฮงเฮงปังจัง', text: `ฉันได้รับ ${result.prize_name}!`, url: window.location.href })}
-            className="w-full h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-white/80 backdrop-blur border border-gray-100 text-gray-700 hover:bg-white transition-all">
-            <Share2 size={16} />
-            แชร์ผ่านช่องทางอื่น
-          </button>
-
-          {/* Back home */}
-          <button
-            onClick={() => router.push('/')}
-            className="w-full h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 text-gray-400 hover:text-gray-600 transition-colors">
-            <Home size={16} />
-            กลับหน้าแรก
+          <button onClick={() => router.push('/')}
+            className="w-full h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-white/80 border border-gray-100 text-gray-700">
+            <Home size={16} /> กลับหน้าแรก
           </button>
         </div>
 
-        {/* History hint */}
-        <button
-          onClick={() => router.push('/profile')}
+        <button onClick={() => router.push('/profile')}
           className="flex items-center gap-2 text-xs text-gray-400 hover:text-red-500 transition-colors">
-          <RotateCcw size={12} />
-          ดูประวัติสิทธิ์ทั้งหมดของคุณ
+          <RotateCcw size={12} /> ดูประวัติสิทธิ์ทั้งหมดของคุณ
         </button>
-
       </div>
     </div>
   )
