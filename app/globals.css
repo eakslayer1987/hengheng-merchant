@@ -1,130 +1,102 @@
-@import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700;900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* =====================================================
-   เฮงเฮงปังจัง — Global Design System
-   Thai Flag BG · Kanit · Breathable Type
-   ===================================================== */
-
 :root {
-  --red:  #fd1803;
-  --red2: #c01002;
-  --dark: #1C1C2E;
-  --navy: #2D2D44;
-  --font: 'Kanit', 'Sarabun', sans-serif;
+  --font-kanit: 'Kanit', sans-serif;
+  --brand: #7C3AED;
+  --brand-light: #F5F3FF;
+  --brand-mid: #EDE9FE;
 }
 
-*, *::before, *::after { box-sizing: border-box; }
-
-html {
-  scroll-behavior: smooth;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+* { box-sizing: border-box; }
 
 body {
-  font-family: var(--font);
-  font-size: 1rem;
-  font-weight: 400;
-  line-height: 1.65;
-  color: #111;
-  /* 🇹🇭 Thai flag BG — fixed full page */
-  background:
-    radial-gradient(ellipse 60% 90% at -5% 50%,  rgba(220,10,10,.75)    0%, rgba(185,5,5,.40)   35%, transparent 62%),
-    radial-gradient(ellipse 50% 80% at 105% 50%, rgba(22,55,170,.70)    0%, rgba(15,40,130,.38) 35%, transparent 62%),
-    radial-gradient(ellipse 55% 50% at 50%  50%, rgba(255,255,255,1)    0%, #eef0f6 100%);
-  background-attachment: fixed;
+  font-family: var(--font-kanit);
+  background: #FAFAFA;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ── Typography ── */
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font);
-  font-weight: 900;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: #0a0a0f;
+/* ── Wheel animation ── */
+@keyframes wheel-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(var(--final-deg, 1800deg)); }
 }
-h1 { font-size: clamp(2.6rem, 7vw, 4.5rem);   margin-bottom: 1rem; }
-h2 { font-size: clamp(1.8rem, 5vw, 3rem);      margin-bottom: .8rem; }
-h3 { font-size: clamp(1.3rem, 3vw, 1.875rem);  margin-bottom: .6rem; }
-h4 { font-size: 1.25rem; font-weight: 800; }
-
-p { font-family: var(--font); line-height: 1.75; color: #4B5563; margin-bottom: 1rem; }
-a, button, input, select, textarea { font-family: var(--font); }
-
-/* ── White shimmer ray (horizontal center stripe) ── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 45% 55% at 50% 50%, rgba(255,255,255,.55) 0%, transparent 65%),
-    linear-gradient(180deg,
-      transparent 0%,
-      rgba(255,255,255,.15) 30%,
-      rgba(255,255,255,.28) 50%,
-      rgba(255,255,255,.15) 70%,
-      transparent 100%
-    );
-  animation: thaiRay 9s ease-in-out infinite alternate;
+.wheel-spinning {
+  animation: wheel-spin 4s cubic-bezier(.17,.67,.12,.99) forwards;
 }
 
-@keyframes thaiRay {
-  0%   { opacity:.7;  transform: scaleY(1)    translateY(0); }
-  50%  { opacity:1;   transform: scaleY(1.06) translateY(-1.5%); }
-  100% { opacity:.75; transform: scaleY(.97)  translateY(1.5%); }
+/* ── Bounce-in (prize popup) ── */
+@keyframes bounce-in {
+  0%   { transform: scale(0) rotate(-8deg); opacity: 0; }
+  60%  { transform: scale(1.12) rotate(2deg); }
+  80%  { transform: scale(0.96) rotate(-1deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
+.bounce-in { animation: bounce-in .65s cubic-bezier(.34,1.4,.64,1) forwards; }
 
-/* ── All content above body BG layers ── */
-body > * { position: relative; z-index: 1; }
-
-/* ── Floating blob animation ── */
-@keyframes blobFloat {
-  from { transform: translate(0, 0) scale(1); }
-  to   { transform: translate(14px, -22px) scale(1.08); }
-}
-
-/* ── Glass card ── */
-.glass-card {
-  background: rgba(255,255,255,.78);
-  backdrop-filter: blur(32px) saturate(1.8);
-  -webkit-backdrop-filter: blur(32px) saturate(1.8);
-  border: 1.5px solid rgba(255,255,255,.92);
-  box-shadow: 0 32px 80px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.04);
-  border-radius: 28px;
-}
-
-/* ── Glass surface (lighter) ── */
-.glass-surface {
-  background: rgba(255,255,255,.60);
-  backdrop-filter: blur(20px) saturate(1.5);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  border: 1px solid rgba(255,255,255,.80);
-}
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar       { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: var(--red); }
-
-/* ── Focus ── */
-*:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
-
-/* ── Animations ── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(24px); }
+/* ── Fade up ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-.animate-spin { animation: spin 1s linear infinite; }
+.fade-up { animation: fade-up .5s cubic-bezier(.16,1,.3,1) both; }
 
-@media (max-width: 768px) {
-  h1 { font-size: clamp(2rem, 10vw, 2.8rem); }
-  h2 { font-size: clamp(1.5rem, 7vw, 2rem); }
+/* ── Shimmer skeleton ── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
 }
+.skeleton {
+  background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 8px;
+}
+
+/* ── Tab pill indicator ── */
+.tab-pill {
+  transition: background .2s, color .2s, box-shadow .2s;
+}
+.tab-pill.active {
+  background: white;
+  color: #7C3AED;
+  box-shadow: 0 1px 6px rgba(0,0,0,.12);
+}
+
+/* ── Card hover ── */
+.card-hover {
+  transition: box-shadow .2s, transform .2s;
+}
+.card-hover:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,.08), 0 16px 40px rgba(0,0,0,.1);
+  transform: translateY(-2px);
+}
+
+/* ── Upload dropzone ── */
+.dropzone-active {
+  border-color: #7C3AED !important;
+  background: #F5F3FF !important;
+}
+
+/* ── Progress bar ── */
+.progress-fill {
+  transition: width .6s cubic-bezier(.16,1,.3,1);
+}
+
+/* ── Button press ── */
+.btn-press:active { transform: scale(0.97); }
+
+/* ── Hide scrollbar ── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Toast ── */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(16px) scale(.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast { animation: toast-in .3s cubic-bezier(.16,1,.3,1) forwards; }
