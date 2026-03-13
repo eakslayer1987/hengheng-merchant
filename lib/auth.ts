@@ -16,27 +16,14 @@ export function verifyToken(token: string): JWTPayload | null {
   }
 }
 
-export function getAuthUser(): JWTPayload | null {
+// ✅ async เพราะ Next.js 14 cookies() เป็น Promise
+export async function getAuthUser(): Promise<JWTPayload | null> {
   try {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const token = cookieStore.get('auth_token')?.value
     if (!token) return null
     return verifyToken(token)
   } catch {
     return null
   }
-}
-
-export function setAuthCookie(token: string) {
-  cookies().set('auth_token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7,
-    path: '/',
-  })
-}
-
-export function clearAuthCookie() {
-  cookies().delete('auth_token')
 }
