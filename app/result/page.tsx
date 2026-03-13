@@ -1,226 +1,265 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { type SpinResult } from '@/lib/api'
-import { Share2, Home, RotateCcw, Ticket, Copy, Check } from 'lucide-react'
+// ─────────────────────────────────────────────────────────────
+//  app/spin/page.tsx
+//  หมุนวงล้อ Instant Win — canvas wheel + PHP spin API
+// ─────────────────────────────────────────────────────────────
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { apiFetch, type SpinResult, type PrizeItem } from '@/lib/api'
+import { Loader2 } from 'lucide-react'
 
-interface Particle {
-  x: number; y: number; vx: number; vy: number
-  color: string; size: number; rotation: number; vr: number; life: number
+// ── Default prize catalog (ถ้า API ยังไม่พร้อม) ───────────────
+const DEFAULT_PRIZES: PrizeItem[] = [
+  { id: 1, name: 'ส่วนลด 10 บาท', type: 'discount',  value: 10,  color: '#fd1803', probability: 0.55 },
+  { id: 2, name: 'ทานฟรีมื้อนี้', type: 'free_meal', value: 1,   color: '#e8a820', probability: 0.10 },
+  { id: 3, name: '50 คะแนน',      type: 'points',    value: 50,  color: '#10b981', probability: 0.15 },
+  { id: 4, name: 'ลองโชคใหม่',   type: 'no_prize',  value: 0,   color: '#6b7280', probability: 0.20 },
+]
+
+// ── Draw wheel on canvas ───────────────────────────────────────
+function drawWheel(canvas: HTMLCanvasElement, prizes: PrizeItem[], rotation: number) {
+  const ctx = canvas.getContext('2d')!
+  const cx = canvas.width / 2
+  const cy = canvas.height / 2
+  const r = cx - 8
+  const arc = (2 * Math.PI) / prizes.length
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  prizes.forEach((p, i) => {
+    const start = rotation + i * arc
+    const end = start + arc
+
+    // Slice
+    ctx.beginPath()
+    ctx.moveTo(cx, cy)
+    ctx.arc(cx, cy, r, start, end)
+    ctx.closePath()
+    ctx.fillStyle = p.color
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)'
+    ctx.lineWidth = 2
+    ctx.stroke()
+
+    // Label
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.rotate(start + arc / 2)
+    ctx.textAlign = 'right'
+    ctx.fillStyle = '#fff'
+    ctx.font = `bold ${prizes.length > 6 ? 11 : 13}px Kanit, sans-serif`
+    ctx.shadowColor = 'rgba(0,0,0,0.3)'
+    ctx.shadowBlur = 4
+    ctx.fillText(p.name, r - 12, 5)
+    ctx.restore()
+  })
+
+  // Center circle
+  ctx.beginPath()
+  ctx.arc(cx, cy, 22, 0, 2 * Math.PI)
+  ctx.fillStyle = '#fff'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+
+  // Bear emoji center
+  ctx.font = '18px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('🐻', cx, cy)
 }
 
-const CONFETTI_COLORS = ['#fd1803','#e8a820','#10b981','#3b82f6','#8b5cf6','#ec4899']
+// ══════════════════════════════════════════════════════════════
+export default function SpinPage() {
+  const params = useSearchParams()
+  const router = useRouter()
+  const qrId = params.get('qr') ?? ''
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const rafRef = useRef<number>(0)
 
-function useConfetti(active: boolean, canvasRef: React.RefObject<HTMLCanvasElement | null>) {
+  const [prizes, setPrizes]       = useState<PrizeItem[]>(DEFAULT_PRIZES)
+  const [rotation, setRotation]   = useState(0)
+  const [spinning, setSpinning]   = useState(false)
+  const [result, setResult]       = useState<SpinResult | null>(null)
+  const [error, setError]         = useState('')
+  const [hasSpun, setHasSpun]     = useState(false)
+  const [loading, setLoading]     = useState(true)
+
+  // ── Load prize catalog ────────────────────────────────────
   useEffect(() => {
-    if (!active) return
+    apiFetch<PrizeItem[]>('/prize/catalog.php')
+      .then(data => { if (data.length) setPrizes(data) })
+      .catch(() => {}) // use defaults
+      .finally(() => setLoading(false))
+  }, [])
+
+  // ── Draw on every rotation change ────────────────────────
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    drawWheel(canvas, prizes, rotation)
+  }, [rotation, prizes])
 
-    canvas.width = window.innerWidth
-    canvas.height = window.innerHeight
+  // ── Easing function ───────────────────────────────────────
+  function easeOut(t: number): number {
+    return 1 - Math.pow(1 - t, 4)
+  }
 
-    const particles: Particle[] = []
-    for (let i = 0; i < 120; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: -10,
-        vx: (Math.random() - 0.5) * 6,
-        vy: Math.random() * 4 + 2,
-        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-        size: Math.random() * 8 + 4,
-        rotation: Math.random() * 360,
-        vr: (Math.random() - 0.5) * 10,
-        life: 1,
+  // ── Call PHP spin API → get winning prize index ───────────
+  const doSpin = useCallback(async () => {
+    if (spinning || hasSpun) return
+    const token = localStorage.getItem('hh_token')
+    if (!token) { router.push(`/scan/${qrId}`); return }
+
+    setSpinning(true)
+    setError('')
+
+    try {
+      const data = await apiFetch<SpinResult>('/qr/spin.php', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ qr_id: qrId }),
       })
-    }
 
-    // capture non-null refs for use inside draw
-    const safeCtx = ctx
-    const safeCanvas = canvas
-    let raf = 0
+      // Find prize index
+      const idx = prizes.findIndex(p => p.id === data.prize_id)
+      const winIdx = idx >= 0 ? idx : 0
 
-    const draw = () => {
-      safeCtx.clearRect(0, 0, safeCanvas.width, safeCanvas.height)
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]
-        p.x += p.vx
-        p.y += p.vy
-        p.vy += 0.12
-        p.rotation += p.vr
-        p.life -= 0.007
-        if (p.life <= 0) { particles.splice(i, 1); continue }
-        safeCtx.save()
-        safeCtx.translate(p.x, p.y)
-        safeCtx.rotate((p.rotation * Math.PI) / 180)
-        safeCtx.globalAlpha = p.life
-        safeCtx.fillStyle = p.color
-        safeCtx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2)
-        safeCtx.restore()
+      // Calculate target rotation: spin 5 full + land on winner
+      const arc = (2 * Math.PI) / prizes.length
+      const targetSliceCenter = -(winIdx * arc + arc / 2) - Math.PI / 2
+      const extraSpins = 5 * 2 * Math.PI
+      const targetRot = targetSliceCenter + extraSpins
+
+      // Animate
+      const duration = 4500
+      const startTime = performance.now()
+      const startRot = rotation
+
+      const animate = (now: number): void => {
+        const elapsed = now - startTime
+        const t = Math.min(elapsed / duration, 1)
+        const eased = easeOut(t)
+        const currentRot = startRot + eased * (targetRot - startRot)
+        setRotation(currentRot)
+
+        if (t < 1) {
+          rafRef.current = requestAnimationFrame(animate)
+        } else {
+          setSpinning(false)
+          setHasSpun(true)
+          setResult(data)
+          // Navigate to result after short delay
+          setTimeout(() => {
+            localStorage.setItem('hh_result', JSON.stringify(data))
+            router.push('/result')
+          }, 1200)
+        }
       }
-      if (particles.length > 0) raf = requestAnimationFrame(draw)
+      rafRef.current = requestAnimationFrame(animate)
+
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด ลองใหม่นะครับ')
+      setSpinning(false)
     }
-    raf = requestAnimationFrame(draw)
-    return () => cancelAnimationFrame(raf)
-  }, [active, canvasRef])
-}
+  }, [spinning, hasSpun, prizes, qrId, rotation, router])
 
-const PRIZE_CONFIG = {
-  discount: {
-    emoji: '🏷️',
-    gradient: 'linear-gradient(135deg,#fd1803,#ff6b4a)',
-    shadow: '0 20px 60px rgba(253,24,3,0.35)',
-    title: (v: number) => `ส่วนลด ${v} บาท!`,
-    desc: 'นำโค้ดนี้ไปลดราคาซอสหมีปรุงได้เลย',
-    bg: 'bg-red-50',
-  },
-  free_meal: {
-    emoji: '🍛',
-    gradient: 'linear-gradient(135deg,#e8a820,#f59e0b)',
-    shadow: '0 20px 60px rgba(232,168,32,0.35)',
-    title: () => 'ทานฟรีมื้อนี้!',
-    desc: 'แจ้งพนักงานเพื่อรับสิทธิ์ทานฟรีมื้อนี้ได้เลย',
-    bg: 'bg-yellow-50',
-  },
-  points: {
-    emoji: '⭐',
-    gradient: 'linear-gradient(135deg,#10b981,#059669)',
-    shadow: '0 20px 60px rgba(16,185,129,0.35)',
-    title: (v: number) => `+${v} คะแนน!`,
-    desc: 'คะแนนสะสมแลกของรางวัลพรีเมียมได้',
-    bg: 'bg-green-50',
-  },
-  no_prize: {
-    emoji: '🎲',
-    gradient: 'linear-gradient(135deg,#6b7280,#4b5563)',
-    shadow: '0 20px 60px rgba(107,114,128,0.25)',
-    title: () => 'ลองโชคใหม่!',
-    desc: 'ยังมีสิทธิ์ลุ้นโชคใหญ่อยู่นะครับ',
-    bg: 'bg-gray-50',
-  },
-} as const
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
 
-export default function ResultPage() {
-  const router = useRouter()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [result, setResult] = useState<SpinResult | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [shown, setShown] = useState(false)
-
-  useEffect(() => {
-    const raw = localStorage.getItem('hh_result')
-    if (!raw) { router.replace('/'); return }
-    setResult(JSON.parse(raw) as SpinResult)
-    setTimeout(() => setShown(true), 100)
-  }, [router])
-
-  const isWin = result?.prize_type !== 'no_prize'
-  useConfetti(isWin && shown, canvasRef as React.RefObject<HTMLCanvasElement | null>)
-
-  if (!result) return (
+  if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="glass-card p-10 text-center">
-        <p className="text-gray-400">กำลังโหลด…</p>
+      <div className="glass-card p-10 flex flex-col items-center gap-4">
+        <Loader2 className="animate-spin text-red-500" size={40} />
+        <p className="text-gray-500 font-medium">กำลังเตรียมวงล้อ…</p>
       </div>
     </div>
   )
 
-  const cfg = PRIZE_CONFIG[result.prize_type]
-
-  async function copyCode() {
-    if (!result?.code_id) return
-    await navigator.clipboard.writeText(result.code_id)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
+  // ══════════════════════════════════════════════════════════
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10 overflow-hidden">
-      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-10">
+      <div className="w-full max-w-sm flex flex-col items-center gap-6">
 
-      <div className={`w-full max-w-sm flex flex-col items-center gap-5 transition-all duration-700 ${shown ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-
-        <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur rounded-full px-4 py-1.5 shadow-sm text-xs font-bold text-red-500 border border-red-100">
-          🐻 เฮงเฮงปังจัง
+        {/* Title */}
+        <div className="text-center">
+          <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur rounded-full px-4 py-1.5 shadow-sm text-xs font-bold text-red-500 border border-red-100 mb-3">
+            🐻 Instant Win
+          </div>
+          <h1 className="text-3xl font-black text-gray-900">หมุนวงล้อลุ้นโชค!</h1>
+          <p className="text-gray-400 text-sm mt-1">กดหมุนและลุ้นรับรางวัลทันที</p>
         </div>
 
-        <div className="glass-card w-full text-center p-8" style={{ boxShadow: cfg.shadow }}>
-          <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl mx-auto mb-5 shadow-xl"
-            style={{ background: cfg.gradient, transform: shown ? 'scale(1)' : 'scale(0.5)', transition: 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.2s' }}>
-            {cfg.emoji}
+        {/* Wheel container */}
+        <div className="relative">
+          {/* Pointer */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 z-10">
+            <div className="w-0 h-0" style={{
+              borderLeft: '10px solid transparent',
+              borderRight: '10px solid transparent',
+              borderTop: '22px solid #fd1803',
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+            }} />
           </div>
 
-          {isWin
-            ? <p className="text-xs font-bold text-red-500 uppercase tracking-widest mb-1">🎉 ยินดีด้วย!</p>
-            : <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">ผลการลุ้น</p>
-          }
+          {/* Glow ring */}
+          <div className="absolute inset-0 rounded-full"
+            style={{
+              boxShadow: spinning
+                ? '0 0 40px rgba(253,24,3,0.5), 0 0 80px rgba(253,24,3,0.2)'
+                : '0 8px 32px rgba(0,0,0,0.15)',
+              transition: 'box-shadow 0.5s',
+              borderRadius: '50%',
+            }} />
 
-          <h1 className="text-3xl font-black text-gray-900 mb-2">{cfg.title(result.prize_value)}</h1>
-          <p className="text-gray-500 text-sm leading-relaxed">{cfg.desc}</p>
-
-          {(result.prize_type === 'discount' || result.prize_type === 'points') && result.code_id && (
-            <div className={`mt-5 ${cfg.bg} rounded-2xl p-4`}>
-              <p className="text-xs text-gray-400 font-medium mb-2">รหัสของคุณ</p>
-              <div className="flex items-center justify-center gap-2">
-                <code className="text-xl font-black text-gray-900 tracking-[0.2em]">{result.code_id}</code>
-                <button onClick={copyCode} className="p-1.5 rounded-lg bg-white shadow-sm">
-                  {copied ? <Check size={15} className="text-green-500" /> : <Copy size={15} className="text-gray-400" />}
-                </button>
-              </div>
-              {copied && <p className="text-green-500 text-xs font-medium mt-1">คัดลอกแล้ว!</p>}
-            </div>
-          )}
-
-          {result.prize_type === 'free_meal' && (
-            <div className="mt-5 bg-yellow-50 rounded-2xl p-4">
-              <p className="text-sm font-bold text-yellow-700 mb-1">วิธีรับสิทธิ์</p>
-              <p className="text-xs text-yellow-600 leading-relaxed">แสดงหน้าจอนี้ให้พนักงานหน้าแคชเชียร์</p>
-              <div className="mt-3 bg-yellow-100 rounded-xl px-4 py-2 text-xs font-bold text-yellow-700">
-                อ้างอิง: {result.code_id}
-              </div>
-            </div>
-          )}
+          <canvas
+            ref={canvasRef}
+            width={300}
+            height={300}
+            className="rounded-full cursor-pointer select-none"
+            onClick={!spinning && !hasSpun ? doSpin : undefined}
+          />
         </div>
 
-        {result.big_prize_ticket && (
-          <div className="glass-card w-full p-4"
-            style={{ background: 'linear-gradient(135deg,rgba(29,5,5,0.9),rgba(45,15,5,0.85))' }}>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg,#e8a820,#d4900d)' }}>🎟️</div>
-              <div>
-                <p className="text-xs font-bold text-yellow-400 uppercase tracking-wider">ลุ้นโชคใหญ่</p>
-                <p className="text-white font-extrabold text-base mt-0.5">ได้รับ ticket แล้ว!</p>
-                <p className="text-white/60 text-xs mt-0.5">เลขที่: {result.big_prize_ticket}</p>
+        {/* Spin button */}
+        {!hasSpun && (
+          <button
+            onClick={doSpin}
+            disabled={spinning}
+            className="w-full h-14 rounded-2xl text-white font-extrabold text-lg flex items-center justify-center gap-2 shadow-[0_8px_32px_rgba(253,24,3,0.4)] disabled:opacity-70 active:scale-95 transition-all"
+            style={{ background: 'linear-gradient(135deg,#fd1803,#e01502)' }}>
+            {spinning ? (
+              <><Loader2 size={20} className="animate-spin" /> กำลังหมุน…</>
+            ) : (
+              '🎰 หมุนเลย!'
+            )}
+          </button>
+        )}
+
+        {/* Prize list */}
+        <div className="glass-card p-4 w-full">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">รางวัลที่ลุ้นได้</p>
+          <div className="flex flex-col gap-2">
+            {prizes.map(p => (
+              <div key={p.id} className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: p.color }} />
+                <span className="text-sm font-semibold text-gray-700 flex-1">{p.name}</span>
+                <span className="text-xs text-gray-400">{Math.round(p.probability * 100)}%</span>
               </div>
-              <Ticket size={20} className="text-yellow-400 ml-auto flex-shrink-0" />
-            </div>
+            ))}
+          </div>
+        </div>
+
+        {error && (
+          <div className="w-full bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-red-500 text-sm font-medium text-center">
+            ⚠️ {error}
           </div>
         )}
 
-        <div className="w-full flex flex-col gap-3">
-          <button
-            onClick={() => {
-              const text = encodeURIComponent(`ฉันเพิ่งลุ้นได้ "${result.prize_name}" จากหมีปรุง! 🐻`)
-              window.open(`https://social-plugins.line.me/lineit/share?text=${text}`)
-            }}
-            className="w-full h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border-2"
-            style={{ borderColor: '#00B900', color: '#00B900', background: '#f0fff0' }}>
-            <Share2 size={16} /> แชร์ผลให้เพื่อนทาง LINE
-          </button>
-
-          <button onClick={() => router.push('/')}
-            className="w-full h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-white/80 border border-gray-100 text-gray-700">
-            <Home size={16} /> กลับหน้าแรก
-          </button>
-        </div>
-
-        <button onClick={() => router.push('/profile')}
-          className="flex items-center gap-2 text-xs text-gray-400 hover:text-red-500 transition-colors">
-          <RotateCcw size={12} /> ดูประวัติสิทธิ์ทั้งหมดของคุณ
-        </button>
+        {result && (
+          <div className="text-center text-gray-400 text-sm animate-pulse">
+            กำลังไปหน้าผลรางวัล…
+          </div>
+        )}
       </div>
     </div>
   )
