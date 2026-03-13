@@ -9,9 +9,9 @@ export default async function AdminReceiptsPage() {
   if (!user || user.role !== 'admin') redirect('/auth/login')
 
   const receipts = await query(
-    `SELECT r.*, m.store_name, u.phone FROM receipts r
+    `SELECT r.*, m.store_name, m.phone
+     FROM receipts r
      JOIN merchants m ON r.merchant_id = m.id
-     JOIN users u ON m.user_id = u.id
      ORDER BY r.approved ASC, r.created_at DESC LIMIT 100`
   )
   return (
