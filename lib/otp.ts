@@ -1,8 +1,6 @@
 /**
- * OTP Service - SMSMKT + MySQL (Vercel-safe, uses db helpers)
+ * OTP Service - SMSMKT + MySQL storage (Vercel-safe)
  */
-
-import { query, execute } from '@/lib/db'
 
 const API_SEND     = 'https://portal-otp.smsmkt.com/api/otp-send'
 const API_VALIDATE = 'https://portal-otp.smsmkt.com/api/otp-validate'
@@ -11,6 +9,9 @@ const PROJECT_KEY = '3b89c17882'
 const API_KEY     = 'b92efef8ffc9ee61875238c8fe1d820b'
 const SECRET_KEY  = 'jzeaGdqReIePWFOw'
 
+import { query, execute } from '@/lib/db'
+
+// Ensure otp_tokens table exists
 async function ensureTable() {
   try {
     await execute(`
@@ -26,7 +27,7 @@ async function ensureTable() {
         INDEX idx_phone (phone)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `, [])
-  } catch (_) {}
+  } catch { /* table already exists */ }
 }
 
 // ─── Send OTP ─────────────────────────────────────────────
@@ -36,8 +37,8 @@ export async function sendOTP(phone: string): Promise<boolean> {
       method:  'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api_key':      API_KEY,
-        'secret_key':   SECRET_KEY,
+        'api_key':       API_KEY,
+        'secret_key':    SECRET_KEY,
       },
       body: JSON.stringify({ project_key: PROJECT_KEY, phone }),
     })
@@ -50,10 +51,10 @@ export async function sendOTP(phone: string): Promise<boolean> {
       const expires = new Date(Date.now() + 5 * 60 * 1000)
         .toISOString().slice(0, 19).replace('T', ' ')
 
-      // ลบ token เก่าของเบอร์นี้
+      // Delete old tokens for this phone
       await execute('DELETE FROM otp_tokens WHERE phone = ?', [phone])
 
-      // บันทึก token ใหม่
+      // Save new token to DB
       await execute(
         'INSERT INTO otp_tokens (phone, token, ref_code, expires_at) VALUES (?,?,?,?)',
         [phone, data.result.token, data.result.ref_code || '', expires]
@@ -86,7 +87,7 @@ export async function verifyOTP(phone: string, otp: string): Promise<boolean> {
       return false
     }
     if (record.attempts >= 5) {
-      console.error('[OTP] too many attempts')
+      console.error('[OTP] too many attempts for', phone)
       return false
     }
 
@@ -94,8 +95,8 @@ export async function verifyOTP(phone: string, otp: string): Promise<boolean> {
       method:  'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api_key':      API_KEY,
-        'secret_key':   SECRET_KEY,
+        'api_key':       API_KEY,
+        'secret_key':    SECRET_KEY,
       },
       body: JSON.stringify({
         token:    record.token,
