@@ -1,7 +1,8 @@
 /**
- * OTP Service - SMSMKT + MySQL storage (Vercel-safe)
- * เก็บ token ใน DB แทน in-memory เพราะ Vercel serverless stateless
+ * OTP Service - SMSMKT + MySQL (Vercel-safe, uses db helpers)
  */
+
+import { query, execute } from '@/lib/db'
 
 const API_SEND     = 'https://portal-otp.smsmkt.com/api/otp-send'
 const API_VALIDATE = 'https://portal-otp.smsmkt.com/api/otp-validate'
@@ -10,28 +11,22 @@ const PROJECT_KEY = '3b89c17882'
 const API_KEY     = 'b92efef8ffc9ee61875238c8fe1d820b'
 const SECRET_KEY  = 'jzeaGdqReIePWFOw'
 
-// Import db lazily to avoid edge runtime issues
-async function getDB() {
-  const { default: pool } = await import('@/lib/db')
-  return pool
-}
-
-// Ensure otp_tokens table exists
 async function ensureTable() {
-  const pool = await getDB()
-  await pool.execute(`
-    CREATE TABLE IF NOT EXISTS otp_tokens (
-      id         INT AUTO_INCREMENT PRIMARY KEY,
-      phone      VARCHAR(20) NOT NULL,
-      token      VARCHAR(255) NOT NULL,
-      ref_code   VARCHAR(20)  DEFAULT '',
-      attempts   INT          DEFAULT 0,
-      verified   TINYINT(1)   DEFAULT 0,
-      expires_at DATETIME     NOT NULL,
-      created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_phone (phone)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `).catch(() => {}) // ignore if exists
+  try {
+    await execute(`
+      CREATE TABLE IF NOT EXISTS otp_tokens (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        phone      VARCHAR(20)  NOT NULL,
+        token      VARCHAR(255) NOT NULL,
+        ref_code   VARCHAR(20)  DEFAULT '',
+        attempts   INT          DEFAULT 0,
+        verified   TINYINT(1)   DEFAULT 0,
+        expires_at DATETIME     NOT NULL,
+        created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_phone (phone)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `, [])
+  } catch (_) {}
 }
 
 // ─── Send OTP ─────────────────────────────────────────────
@@ -41,8 +36,8 @@ export async function sendOTP(phone: string): Promise<boolean> {
       method:  'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api_key':       API_KEY,
-        'secret_key':    SECRET_KEY,
+        'api_key':      API_KEY,
+        'secret_key':   SECRET_KEY,
       },
       body: JSON.stringify({ project_key: PROJECT_KEY, phone }),
     })
@@ -51,15 +46,15 @@ export async function sendOTP(phone: string): Promise<boolean> {
 
     if (data.code === '000' && data.result?.token) {
       await ensureTable()
-      const pool    = await getDB()
+
       const expires = new Date(Date.now() + 5 * 60 * 1000)
         .toISOString().slice(0, 19).replace('T', ' ')
 
-      // Delete old tokens for this phone
-      await pool.execute('DELETE FROM otp_tokens WHERE phone = ?', [phone])
+      // ลบ token เก่าของเบอร์นี้
+      await execute('DELETE FROM otp_tokens WHERE phone = ?', [phone])
 
-      // Save new token
-      await pool.execute(
+      // บันทึก token ใหม่
+      await execute(
         'INSERT INTO otp_tokens (phone, token, ref_code, expires_at) VALUES (?,?,?,?)',
         [phone, data.result.token, data.result.ref_code || '', expires]
       )
@@ -78,9 +73,8 @@ export async function sendOTP(phone: string): Promise<boolean> {
 export async function verifyOTP(phone: string, otp: string): Promise<boolean> {
   try {
     await ensureTable()
-    const pool = await getDB()
 
-    const [rows] = await pool.execute<any>(
+    const rows = await query<any>(
       `SELECT * FROM otp_tokens
        WHERE phone = ? AND verified = 0 AND expires_at > NOW()
        ORDER BY id DESC LIMIT 1`,
@@ -92,7 +86,7 @@ export async function verifyOTP(phone: string, otp: string): Promise<boolean> {
       return false
     }
     if (record.attempts >= 5) {
-      console.error('[OTP] too many attempts for', phone)
+      console.error('[OTP] too many attempts')
       return false
     }
 
@@ -100,8 +94,8 @@ export async function verifyOTP(phone: string, otp: string): Promise<boolean> {
       method:  'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api_key':       API_KEY,
-        'secret_key':    SECRET_KEY,
+        'api_key':      API_KEY,
+        'secret_key':   SECRET_KEY,
       },
       body: JSON.stringify({
         token:    record.token,
@@ -113,12 +107,11 @@ export async function verifyOTP(phone: string, otp: string): Promise<boolean> {
     console.log('[OTP] verify:', JSON.stringify(data))
 
     if (data.code === '000' && data.result?.status === true) {
-      await pool.execute('UPDATE otp_tokens SET verified = 1 WHERE id = ?', [record.id])
+      await execute('UPDATE otp_tokens SET verified = 1 WHERE id = ?', [record.id])
       return true
     }
 
-    // Wrong OTP — increment attempts
-    await pool.execute('UPDATE otp_tokens SET attempts = attempts + 1 WHERE id = ?', [record.id])
+    await execute('UPDATE otp_tokens SET attempts = attempts + 1 WHERE id = ?', [record.id])
     return false
   } catch (e) {
     console.error('[OTP] verify error:', e)
