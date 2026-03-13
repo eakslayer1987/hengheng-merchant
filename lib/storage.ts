@@ -21,13 +21,17 @@ export async function uploadFile(
 
   try {
     const url = `${endpoint}/${bucket}/${key}`
-    const res = await fetch(url, {
-      method: 'PUT',
+    // Convert Buffer → Uint8Array for fetch compatibility
+    const body = new Uint8Array(buffer)
+    const res  = await fetch(url, {
+      method:  'PUT',
       headers: {
-        'Content-Type': mimeType,
-        'Authorization': `Bearer ${accessKey}`,
+        'Content-Type':   mimeType,
+        'Authorization':  `Bearer ${accessKey}`,
+        'Content-Length': String(buffer.length),
       },
-      body: buffer,
+      // @ts-ignore — Node 18+ supports Uint8Array as body
+      body,
     })
     if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
     return `${publicUrl}/${key}`
