@@ -6,7 +6,7 @@ import RewardsClient from './RewardsClient'
 import type { Reward } from '@/types'
 
 export default async function AdminRewardsPage() {
-  const user = getAuthUser()
+  const user = await getAuthUser()
   if (!user || user.role !== 'admin') redirect('/auth/login')
 
   const rewards = await query<Reward>('SELECT * FROM rewards ORDER BY sort_order')

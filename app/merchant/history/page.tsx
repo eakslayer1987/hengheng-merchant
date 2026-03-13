@@ -6,7 +6,7 @@ import MerchantLayout from '@/components/merchant/MerchantLayout'
 import HistoryClient from './HistoryClient'
 
 export default async function HistoryPage() {
-  const user = getAuthUser()
+  const user = await getAuthUser()
   if (!user) redirect('/auth/login')
 
   const merchant = await queryOne<Merchant>('SELECT * FROM merchants WHERE user_id=?', [user.id])

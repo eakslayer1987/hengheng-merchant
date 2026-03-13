@@ -5,7 +5,7 @@ import AdminLayout from '@/components/admin/AdminLayout'
 import MerchantsClient from './MerchantsClient'
 
 export default async function AdminMerchantsPage() {
-  const user = getAuthUser()
+  const user = await getAuthUser()
   if (!user || user.role !== 'admin') redirect('/auth/login')
 
   const merchants = await query(

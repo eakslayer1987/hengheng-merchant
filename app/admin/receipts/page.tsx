@@ -5,7 +5,7 @@ import AdminLayout from '@/components/admin/AdminLayout'
 import ReceiptsClient from './ReceiptsClient'
 
 export default async function AdminReceiptsPage() {
-  const user = getAuthUser()
+  const user = await getAuthUser()
   if (!user || user.role !== 'admin') redirect('/auth/login')
 
   const receipts = await query(

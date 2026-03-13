@@ -5,7 +5,7 @@ import type { Merchant } from '@/types'
 import QRCodeClient from './QRCodeClient'
 
 export default async function QRCodesPage() {
-  const user = getAuthUser()
+  const user = await getAuthUser()
   if (!user) redirect('/auth/login')
 
   const merchant = await queryOne<Merchant>(

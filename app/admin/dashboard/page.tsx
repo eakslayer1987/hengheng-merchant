@@ -5,7 +5,7 @@ import AdminLayout from '@/components/admin/AdminLayout'
 import AdminDashboardClient from './AdminDashboardClient'
 
 export default async function AdminDashboardPage() {
-  const user = getAuthUser()
+  const user = await getAuthUser()
   if (!user || user.role !== 'admin') redirect('/auth/login')
 
   const stats = await queryOne<{
