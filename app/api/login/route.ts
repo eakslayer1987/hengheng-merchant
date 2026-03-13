@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { queryOne, execute } from '@/lib/db'
 import { signToken } from '@/lib/auth'
 import { v4 as uuid } from 'uuid'
-import type { User, Merchant } from '@/types'
+import type { User } from '@/types'
 
 const API_SEND     = 'https://portal-otp.smsmkt.com/api/otp-send'
 const API_VALIDATE = 'https://portal-otp.smsmkt.com/api/otp-validate'
@@ -20,36 +20,25 @@ export async function POST(req: NextRequest) {
   if (step === 'send_otp') {
     try {
       const res  = await fetch(API_SEND, {
-        method:  'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'api_key':      API_KEY,
-          'secret_key':   SECRET_KEY,
-        },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'api_key': API_KEY, 'secret_key': SECRET_KEY },
         body: JSON.stringify({ project_key: PROJECT_KEY, phone }),
       })
       const data = await res.json()
       console.log('[OTP send]', JSON.stringify(data))
 
-      if (data.code !== '000' || !data.result?.token) {
-        return NextResponse.json({
-          success: false,
-          message: `SMSMKT Error: ${data.detail || data.message || JSON.stringify(data)}`
-        })
-      }
+      if (data.code !== '000' || !data.result?.token)
+        return NextResponse.json({ success: false, message: `SMSMKT: ${data.detail || data.message}` })
 
-      // ✅ ใช้ DATE_ADD(NOW(), INTERVAL 5 MINUTE) ใน DB แทน JS Date
-      // เพื่อให้เวลาตรงกับ MySQL server timezone (Bangkok)
       await execute('DELETE FROM otp_tokens WHERE phone = ?', [phone])
       await execute(
         `INSERT INTO otp_tokens (phone, token, ref_code, expires_at)
          VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))`,
         [phone, data.result.token, data.result.ref_code || '']
       )
-      return NextResponse.json({ success: true, message: 'ส่ง OTP แล้ว' })
+      return NextResponse.json({ success: true })
     } catch (e: any) {
-      console.error('[OTP send error]', e)
-      return NextResponse.json({ success: false, message: `Error: ${e?.message || e}` })
+      return NextResponse.json({ success: false, message: `Error: ${e?.message}` })
     }
   }
 
@@ -57,21 +46,15 @@ export async function POST(req: NextRequest) {
   if (step === 'verify_otp') {
     try {
       const record = await queryOne<any>(
-        `SELECT * FROM otp_tokens
-         WHERE phone = ? AND verified = 0 AND expires_at > NOW()
-         ORDER BY id DESC LIMIT 1`,
+        `SELECT * FROM otp_tokens WHERE phone = ? AND verified = 0 AND expires_at > NOW() ORDER BY id DESC LIMIT 1`,
         [phone]
       )
       if (!record) return NextResponse.json({ success: false, message: 'OTP หมดอายุ กรุณาขอใหม่' })
-      if (record.attempts >= 5) return NextResponse.json({ success: false, message: 'ลองผิดเกิน 5 ครั้ง กรุณาขอ OTP ใหม่' })
+      if (record.attempts >= 5) return NextResponse.json({ success: false, message: 'ลองผิดเกิน 5 ครั้ง' })
 
       const res  = await fetch(API_VALIDATE, {
-        method:  'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'api_key':      API_KEY,
-          'secret_key':   SECRET_KEY,
-        },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'api_key': API_KEY, 'secret_key': SECRET_KEY },
         body: JSON.stringify({ token: record.token, otp_code: otp, ref_code: record.ref_code }),
       })
       const data = await res.json()
@@ -95,38 +78,42 @@ export async function POST(req: NextRequest) {
       response.cookies.set('auth_token', token, { httpOnly: true, sameSite: 'lax', maxAge: 60*60*24*7, path: '/' })
       return response
     } catch (e: any) {
-      console.error('[OTP verify error]', e)
-      return NextResponse.json({ success: false, message: `Error: ${e?.message || e}` })
+      return NextResponse.json({ success: false, message: `Error: ${e?.message}` })
     }
   }
 
-  // ─── Step 3: Set name ────────────────────────────────────
+  // ─── Step 3: Set name (new merchant) ─────────────────────
   if (step === 'set_name') {
     if (!name?.trim()) return NextResponse.json({ success: false, message: 'ต้องการชื่อร้าน' })
     try {
-      const result = await execute(
+      // 1. Insert user
+      const userResult = await execute(
         'INSERT INTO users (phone, name, role) VALUES (?,?,?)',
         [phone, name.trim(), 'merchant']
       )
-      const userId = result.insertId
+      const userId = userResult.insertId
+
+      // 2. Insert merchant — ใช้ columns ที่มีจริงในตาราง
       const qrCode = `MP-${uuid().slice(0,8).toUpperCase()}`
-      await execute(
-        'INSERT INTO merchants (user_id, store_name, phone, qr_code, approved) VALUES (?,?,?,?,1)',
-        [userId, name.trim(), phone, qrCode]
+      const merchantResult = await execute(
+        'INSERT INTO merchants (store_name, phone, qr_code, approved) VALUES (?,?,?,1)',
+        [name.trim(), phone, qrCode]
       )
-      const merchant = await queryOne<Merchant>('SELECT * FROM merchants WHERE user_id = ?', [userId])
-      if (merchant) {
-        await execute(
-          'INSERT INTO merchant_quota (merchant_id, quota_total, quota_used) VALUES (?,0,0)',
-          [merchant.id]
-        )
-      }
+      const merchantId = merchantResult.insertId
+
+      // 3. Insert quota โดยใช้ merchantId โดยตรง
+      await execute(
+        'INSERT INTO merchant_quota (merchant_id, quota_total, quota_used) VALUES (?,0,0)',
+        [merchantId]
+      )
+
       const token = signToken({ id: userId, phone, role: 'merchant' })
       const res = NextResponse.json({ success: true, redirect: '/merchant/dashboard' })
       res.cookies.set('auth_token', token, { httpOnly: true, sameSite: 'lax', maxAge: 60*60*24*7, path: '/' })
       return res
     } catch (e: any) {
-      return NextResponse.json({ success: false, message: `Error: ${e?.message || e}` })
+      console.error('[set_name error]', e)
+      return NextResponse.json({ success: false, message: `Error: ${e?.message}` })
     }
   }
 
