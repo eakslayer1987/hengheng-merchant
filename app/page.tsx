@@ -53,31 +53,32 @@ function SpinWheel() {
     const ctx = canvas.getContext('2d'); if (!ctx) return
     const cx=131,cy=131,r=123
     const arc=(2*Math.PI)/SLICES.length
+    const sc = ctx
 
-    function draw() {
-      ctx.clearRect(0,0,262,262)
+    const draw = () => {
+      sc.clearRect(0,0,262,262)
       SLICES.forEach((s,i) => {
         const st=rotRef.current+i*arc, en=st+arc
-        ctx.beginPath(); ctx.moveTo(cx,cy)
-        ctx.arc(cx,cy,r,st,en); ctx.closePath()
-        ctx.fillStyle=s.color; ctx.fill()
-        ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=2.5; ctx.stroke()
-        ctx.save(); ctx.translate(cx,cy); ctx.rotate(st+arc/2)
-        ctx.textAlign='right'; ctx.fillStyle='rgba(255,255,255,.96)'
-        ctx.shadowColor='rgba(0,0,0,.4)'; ctx.shadowBlur=6
-        ctx.font='bold 11.5px Kanit,sans-serif'
-        s.name.forEach((l,li) => ctx.fillText(l, r-10, li*14-(s.name.length-1)*7+1))
-        ctx.restore()
+        sc.beginPath(); sc.moveTo(cx,cy)
+        sc.arc(cx,cy,r,st,en); sc.closePath()
+        sc.fillStyle=s.color; sc.fill()
+        sc.strokeStyle='rgba(255,255,255,.5)'; sc.lineWidth=2.5; sc.stroke()
+        sc.save(); sc.translate(cx,cy); sc.rotate(st+arc/2)
+        sc.textAlign='right'; sc.fillStyle='rgba(255,255,255,.96)'
+        sc.shadowColor='rgba(0,0,0,.4)'; sc.shadowBlur=6
+        sc.font='bold 11.5px Kanit,sans-serif'
+        s.name.forEach((l,li) => sc.fillText(l, r-10, li*14-(s.name.length-1)*7+1))
+        sc.restore()
       })
-      ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI)
-      ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=4; ctx.stroke()
-      const cg=ctx.createRadialGradient(cx-3,cy-3,2,cx,cy,24)
+      sc.beginPath(); sc.arc(cx,cy,r,0,2*Math.PI)
+      sc.strokeStyle='rgba(255,255,255,.22)'; sc.lineWidth=4; sc.stroke()
+      const cg=sc.createRadialGradient(cx-3,cy-3,2,cx,cy,24)
       cg.addColorStop(0,'#fff'); cg.addColorStop(1,'#f0f0f0')
-      ctx.beginPath(); ctx.arc(cx,cy,24,0,2*Math.PI)
-      ctx.fillStyle=cg; ctx.fill()
-      ctx.strokeStyle='rgba(253,24,3,.22)'; ctx.lineWidth=2; ctx.stroke()
-      ctx.font='18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'
-      ctx.shadowBlur=0; ctx.fillText('🐻',cx,cy)
+      sc.beginPath(); sc.arc(cx,cy,24,0,2*Math.PI)
+      sc.fillStyle=cg; sc.fill()
+      sc.strokeStyle='rgba(253,24,3,.22)'; sc.lineWidth=2; sc.stroke()
+      sc.font='18px sans-serif'; sc.textAlign='center'; sc.textBaseline='middle'
+      sc.shadowBlur=0; sc.fillText('🐻',cx,cy)
     }
 
     function tick() {
