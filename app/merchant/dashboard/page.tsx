@@ -8,8 +8,9 @@ export default async function MerchantDashboardPage() {
   const user = getAuthUser()
   if (!user) redirect('/auth/login')
 
+  // ใช้ phone แทน user_id เพราะตาราง merchants เก่าไม่มี column user_id
   const merchant = await queryOne<Merchant>(
-    'SELECT * FROM merchants WHERE user_id = ?', [user.id]
+    'SELECT * FROM merchants WHERE phone = ? LIMIT 1', [user.phone]
   )
   if (!merchant) redirect('/auth/login')
 
@@ -17,9 +18,9 @@ export default async function MerchantDashboardPage() {
     `SELECT
        COALESCE(q.quota_total,0)                                AS quota_total,
        COALESCE(q.quota_used,0)                                 AS quota_used,
-       COALESCE(q.quota_total,0) - COALESCE(q.quota_used,0)     AS quota_remaining,
-       (SELECT COUNT(*) FROM spins   WHERE merchant_id=?)       AS total_spins,
-       (SELECT COUNT(*) FROM coupons WHERE merchant_id=?)       AS total_coupons,
+       COALESCE(q.quota_total,0) - COALESCE(q.quota_used,0)    AS quota_remaining,
+       (SELECT COUNT(*) FROM spins    WHERE merchant_id=?)      AS total_spins,
+       (SELECT COUNT(*) FROM coupons  WHERE merchant_id=?)      AS total_coupons,
        (SELECT COUNT(*) FROM receipts WHERE merchant_id=?)      AS total_receipts
      FROM merchants m
      LEFT JOIN merchant_quota q ON m.id = q.merchant_id
@@ -36,7 +37,7 @@ export default async function MerchantDashboardPage() {
   return (
     <MerchantDashboardClient
       merchant={merchant}
-      stats={stats}
+      stats={stats as MerchantStats}
       todaySpins={recentSpins?.count || 0}
     />
   )
