@@ -24,7 +24,7 @@ function useConfetti(active: boolean, canvasRef: React.RefObject<HTMLCanvasEleme
     if (!active) return
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')!
+    const ctx = canvas.getContext('2d'); if (!ctx) return
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
 
@@ -43,8 +43,8 @@ function useConfetti(active: boolean, canvasRef: React.RefObject<HTMLCanvasEleme
       })
     }
 
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    const c = canvas; function draw() {
+      ctx.clearRect(0, 0, c.width, c.height)
       particles.current = particles.current.filter(p => p.life > 0)
       particles.current.forEach(p => {
         p.x += p.vx
