@@ -1,29 +1,41 @@
-import mysql from 'mysql2/promise'
+/**
+ * DB Client - calls PHP proxy on Hostneverdie
+ * เพราะ Vercel (AWS) ต่อ MySQL Hostneverdie direct ไม่ได้
+ */
 
-const pool = mysql.createPool({
-  host:              process.env.DB_HOST     || 'localhost',
-  port:              parseInt(process.env.DB_PORT || '3306'),
-  database:          process.env.DB_NAME     || 'meeprung_reward',
-  user:              process.env.DB_USER     || 'root',
-  password:          process.env.DB_PASSWORD || '',
-  waitForConnections: true,
-  connectionLimit:   10,
-  queueLimit:        0,
-})
+const PROXY_URL    = 'https://xn--72cac8e8ec.com/shop/api/db-proxy.php'
+const PROXY_SECRET = 'hh-proxy-2025-xnca-secret'
 
-export async function query<T = any>(sql: string, values?: any[]): Promise<T[]> {
-  const [rows] = await pool.execute<any>(sql, values)
-  return rows as T[]
+async function proxyRequest(action: string, sql: string, params: any[] = []) {
+  const res = await fetch(PROXY_URL, {
+    method:  'POST',
+    headers: {
+      'Content-Type':    'application/json',
+      'X-Proxy-Secret':  PROXY_SECRET,
+    },
+    body: JSON.stringify({ action, sql, params }),
+  })
+
+  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`)
+  const data = await res.json()
+  if (data.error) throw new Error(`DB Error: ${data.error}`)
+  return data
 }
 
-export async function queryOne<T = any>(sql: string, values?: any[]): Promise<T | null> {
-  const rows = await query<T>(sql, values)
+// SELECT — returns array of rows
+export async function query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+  const data = await proxyRequest('query', sql, params)
+  return data.rows as T[]
+}
+
+// SELECT one row
+export async function queryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
+  const rows = await query<T>(sql, params)
   return rows[0] ?? null
 }
 
-export async function execute(sql: string, values?: any[]): Promise<{ insertId: number; affectedRows: number }> {
-  const [result] = await pool.execute<any>(sql, values)
-  return { insertId: result.insertId, affectedRows: result.affectedRows }
+// INSERT / UPDATE / DELETE
+export async function execute(sql: string, params: any[] = []): Promise<{ insertId: number; affectedRows: number }> {
+  const data = await proxyRequest('execute', sql, params)
+  return { insertId: Number(data.insertId), affectedRows: Number(data.affectedRows) }
 }
-
-export default pool
