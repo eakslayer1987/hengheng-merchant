@@ -1,29 +1,44 @@
 /**
- * OTP Service - SMSMKT Integration
- * ใช้ credentials เดียวกับ ปังจัง.com
+ * OTP Service - SMSMKT + MySQL storage (Vercel-safe)
+ * เก็บ token ใน DB แทน in-memory เพราะ Vercel serverless stateless
  */
 
 const API_SEND     = 'https://portal-otp.smsmkt.com/api/otp-send'
 const API_VALIDATE = 'https://portal-otp.smsmkt.com/api/otp-validate'
 
-const PROJECT_KEY  = process.env.SMSMKT_PROJECT_KEY  || '3b89c17882'
-const API_KEY      = process.env.SMSMKT_API_KEY      || 'b92efef8ffc9ee61875238c8fe1d820b'
-const SECRET_KEY   = process.env.SMSMKT_SECRET_KEY   || 'jzeaGdqReIePWFOw'
+const PROJECT_KEY = '3b89c17882'
+const API_KEY     = 'b92efef8ffc9ee61875238c8fe1d820b'
+const SECRET_KEY  = 'jzeaGdqReIePWFOw'
 
-// In-memory OTP store (Vercel serverless — resets per cold start แต่เพียงพอสำหรับ OTP)
-interface OTPRecord {
-  token:     string
-  ref_code:  string
-  expires:   number
-  attempts:  number
+// Import db lazily to avoid edge runtime issues
+async function getDB() {
+  const { default: pool } = await import('@/lib/db')
+  return pool
 }
-const otpStore = new Map<string, OTPRecord>()
 
-// ─── Send OTP via SMSMKT ──────────────────────────────────
+// Ensure otp_tokens table exists
+async function ensureTable() {
+  const pool = await getDB()
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS otp_tokens (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      phone      VARCHAR(20) NOT NULL,
+      token      VARCHAR(255) NOT NULL,
+      ref_code   VARCHAR(20)  DEFAULT '',
+      attempts   INT          DEFAULT 0,
+      verified   TINYINT(1)   DEFAULT 0,
+      expires_at DATETIME     NOT NULL,
+      created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_phone (phone)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `).catch(() => {}) // ignore if exists
+}
+
+// ─── Send OTP ─────────────────────────────────────────────
 export async function sendOTP(phone: string): Promise<boolean> {
   try {
-    const res = await fetch(API_SEND, {
-      method: 'POST',
+    const res  = await fetch(API_SEND, {
+      method:  'POST',
       headers: {
         'Content-Type': 'application/json',
         'api_key':       API_KEY,
@@ -31,38 +46,58 @@ export async function sendOTP(phone: string): Promise<boolean> {
       },
       body: JSON.stringify({ project_key: PROJECT_KEY, phone }),
     })
-
     const data = await res.json()
-    console.log('[OTP] Send response:', data)
+    console.log('[OTP] send:', JSON.stringify(data))
 
     if (data.code === '000' && data.result?.token) {
-      otpStore.set(phone, {
-        token:    data.result.token,
-        ref_code: data.result.ref_code || '',
-        expires:  Date.now() + 5 * 60 * 1000, // 5 min
-        attempts: 0,
-      })
+      await ensureTable()
+      const pool    = await getDB()
+      const expires = new Date(Date.now() + 5 * 60 * 1000)
+        .toISOString().slice(0, 19).replace('T', ' ')
+
+      // Delete old tokens for this phone
+      await pool.execute('DELETE FROM otp_tokens WHERE phone = ?', [phone])
+
+      // Save new token
+      await pool.execute(
+        'INSERT INTO otp_tokens (phone, token, ref_code, expires_at) VALUES (?,?,?,?)',
+        [phone, data.result.token, data.result.ref_code || '', expires]
+      )
       return true
     }
 
-    console.error('[OTP] Send failed:', data.detail || data.message)
+    console.error('[OTP] send failed:', data.detail || data.message)
     return false
   } catch (e) {
-    console.error('[OTP] Send error:', e)
+    console.error('[OTP] send error:', e)
     return false
   }
 }
 
-// ─── Verify OTP via SMSMKT ────────────────────────────────
+// ─── Verify OTP ───────────────────────────────────────────
 export async function verifyOTP(phone: string, otp: string): Promise<boolean> {
-  const record = otpStore.get(phone)
-  if (!record) return false
-  if (Date.now() > record.expires) { otpStore.delete(phone); return false }
-  if (record.attempts >= 5) return false
-
   try {
-    const res = await fetch(API_VALIDATE, {
-      method: 'POST',
+    await ensureTable()
+    const pool = await getDB()
+
+    const [rows] = await pool.execute<any>(
+      `SELECT * FROM otp_tokens
+       WHERE phone = ? AND verified = 0 AND expires_at > NOW()
+       ORDER BY id DESC LIMIT 1`,
+      [phone]
+    )
+    const record = rows[0]
+    if (!record) {
+      console.error('[OTP] no valid token for', phone)
+      return false
+    }
+    if (record.attempts >= 5) {
+      console.error('[OTP] too many attempts for', phone)
+      return false
+    }
+
+    const res  = await fetch(API_VALIDATE, {
+      method:  'POST',
       headers: {
         'Content-Type': 'application/json',
         'api_key':       API_KEY,
@@ -74,31 +109,25 @@ export async function verifyOTP(phone: string, otp: string): Promise<boolean> {
         ref_code: record.ref_code,
       }),
     })
-
     const data = await res.json()
-    console.log('[OTP] Verify response:', data)
+    console.log('[OTP] verify:', JSON.stringify(data))
 
     if (data.code === '000' && data.result?.status === true) {
-      otpStore.delete(phone)
+      await pool.execute('UPDATE otp_tokens SET verified = 1 WHERE id = ?', [record.id])
       return true
     }
 
-    // Increment attempts on wrong OTP
-    record.attempts++
-    otpStore.set(phone, record)
+    // Wrong OTP — increment attempts
+    await pool.execute('UPDATE otp_tokens SET attempts = attempts + 1 WHERE id = ?', [record.id])
     return false
   } catch (e) {
-    console.error('[OTP] Verify error:', e)
+    console.error('[OTP] verify error:', e)
     return false
   }
 }
 
-// ─── Legacy helpers (keep API compat) ─────────────────────
+// Legacy stubs
 export function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
-
-export function storeOTP(phone: string, code: string): void {
-  // Not used in production — kept for compatibility
-  console.warn('[OTP] storeOTP called (legacy) — use sendOTP instead')
-}
+export function storeOTP(_phone: string, _code: string): void {}
