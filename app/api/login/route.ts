@@ -38,13 +38,13 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // Save token to DB
-      const expires = new Date(Date.now() + 5 * 60 * 1000)
-        .toISOString().slice(0, 19).replace('T', ' ')
+      // ✅ ใช้ DATE_ADD(NOW(), INTERVAL 5 MINUTE) ใน DB แทน JS Date
+      // เพื่อให้เวลาตรงกับ MySQL server timezone (Bangkok)
       await execute('DELETE FROM otp_tokens WHERE phone = ?', [phone])
       await execute(
-        'INSERT INTO otp_tokens (phone, token, ref_code, expires_at) VALUES (?,?,?,?)',
-        [phone, data.result.token, data.result.ref_code || '', expires]
+        `INSERT INTO otp_tokens (phone, token, ref_code, expires_at)
+         VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))`,
+        [phone, data.result.token, data.result.ref_code || '']
       )
       return NextResponse.json({ success: true, message: 'ส่ง OTP แล้ว' })
     } catch (e: any) {
@@ -56,14 +56,14 @@ export async function POST(req: NextRequest) {
   // ─── Step 2: Verify OTP ──────────────────────────────────
   if (step === 'verify_otp') {
     try {
-      const rows = await queryOne<any>(
+      const record = await queryOne<any>(
         `SELECT * FROM otp_tokens
          WHERE phone = ? AND verified = 0 AND expires_at > NOW()
          ORDER BY id DESC LIMIT 1`,
         [phone]
       )
-      if (!rows) return NextResponse.json({ success: false, message: 'OTP หมดอายุ กรุณาขอใหม่' })
-      if (rows.attempts >= 5) return NextResponse.json({ success: false, message: 'ลองผิดเกิน 5 ครั้ง กรุณาขอ OTP ใหม่' })
+      if (!record) return NextResponse.json({ success: false, message: 'OTP หมดอายุ กรุณาขอใหม่' })
+      if (record.attempts >= 5) return NextResponse.json({ success: false, message: 'ลองผิดเกิน 5 ครั้ง กรุณาขอ OTP ใหม่' })
 
       const res  = await fetch(API_VALIDATE, {
         method:  'POST',
@@ -72,17 +72,17 @@ export async function POST(req: NextRequest) {
           'api_key':      API_KEY,
           'secret_key':   SECRET_KEY,
         },
-        body: JSON.stringify({ token: rows.token, otp_code: otp, ref_code: rows.ref_code }),
+        body: JSON.stringify({ token: record.token, otp_code: otp, ref_code: record.ref_code }),
       })
       const data = await res.json()
       console.log('[OTP verify]', JSON.stringify(data))
 
       if (data.code !== '000' || data.result?.status !== true) {
-        await execute('UPDATE otp_tokens SET attempts = attempts + 1 WHERE id = ?', [rows.id])
+        await execute('UPDATE otp_tokens SET attempts = attempts + 1 WHERE id = ?', [record.id])
         return NextResponse.json({ success: false, message: 'OTP ไม่ถูกต้อง' })
       }
 
-      await execute('UPDATE otp_tokens SET verified = 1 WHERE id = ?', [rows.id])
+      await execute('UPDATE otp_tokens SET verified = 1 WHERE id = ?', [record.id])
 
       const user = await queryOne<User>('SELECT * FROM users WHERE phone = ?', [phone])
       if (!user) return NextResponse.json({ success: true, is_new: true })
