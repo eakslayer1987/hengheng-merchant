@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { query, queryOne, execute } from '@/lib/db'
-import { generateOTP, storeOTP, verifyOTP, sendOTP } from '@/lib/otp'
-import { signToken, setAuthCookie } from '@/lib/auth'
+import { queryOne, execute } from '@/lib/db'
+import { sendOTP, verifyOTP } from '@/lib/otp'
+import { signToken } from '@/lib/auth'
 import { v4 as uuid } from 'uuid'
 import type { User, Merchant } from '@/types'
 
@@ -13,25 +13,22 @@ export async function POST(req: NextRequest) {
 
   // ─── Step 1: Send OTP ─────────────────────────────────────
   if (step === 'send_otp') {
-    const code = generateOTP()
-    storeOTP(phone, code)
-    const sent = await sendOTP(phone, code)
+    const sent = await sendOTP(phone)
     if (!sent) return NextResponse.json({ success: false, message: 'ส่ง OTP ไม่สำเร็จ' })
     return NextResponse.json({ success: true, message: 'ส่ง OTP แล้ว' })
   }
 
   // ─── Step 2: Verify OTP ──────────────────────────────────
   if (step === 'verify_otp') {
-    if (!verifyOTP(phone, otp)) {
-      return NextResponse.json({ success: false, message: 'OTP ไม่ถูกต้องหรือหมดอายุ' })
-    }
+    const valid = await verifyOTP(phone, otp)
+    if (!valid) return NextResponse.json({ success: false, message: 'OTP ไม่ถูกต้องหรือหมดอายุ' })
+
     const user = await queryOne<User>('SELECT * FROM users WHERE phone = ?', [phone])
     if (!user) {
-      // new user — need name
       return NextResponse.json({ success: true, is_new: true })
     }
     const token = signToken({ id: user.id, phone: user.phone, role: user.role })
-    const res   = NextResponse.json({
+    const res = NextResponse.json({
       success: true, is_new: false,
       redirect: user.role === 'admin' ? '/admin/dashboard' : '/merchant/dashboard',
     })
@@ -54,10 +51,13 @@ export async function POST(req: NextRequest) {
     )
     const merchant = await queryOne<Merchant>('SELECT * FROM merchants WHERE user_id = ?', [userId])
     if (merchant) {
-      await execute('INSERT INTO merchant_quota (merchant_id, quota_total, quota_used) VALUES (?,0,0)', [merchant.id])
+      await execute(
+        'INSERT INTO merchant_quota (merchant_id, quota_total, quota_used) VALUES (?,0,0)',
+        [merchant.id]
+      )
     }
     const token = signToken({ id: userId, phone, role: 'merchant' })
-    const res   = NextResponse.json({ success: true, redirect: '/merchant/dashboard' })
+    const res = NextResponse.json({ success: true, redirect: '/merchant/dashboard' })
     res.cookies.set('auth_token', token, { httpOnly: true, sameSite: 'lax', maxAge: 60*60*24*7, path: '/' })
     return res
   }
