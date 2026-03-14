@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queryOne, execute } from '@/lib/db'
 import { signToken } from '@/lib/auth'
-import { v4 as uuid } from 'uuid'
 import type { User } from '@/types'
 
 const API_SEND     = 'https://portal-otp.smsmkt.com/api/otp-send'
@@ -13,10 +12,8 @@ const SECRET_KEY   = 'jzeaGdqReIePWFOw'
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { step, phone, otp, name } = body
-
   if (!phone) return NextResponse.json({ success: false, message: 'ต้องการเบอร์โทร' })
 
-  // ─── Step 1: Send OTP ─────────────────────────────────────
   if (step === 'send_otp') {
     try {
       const res  = await fetch(API_SEND, {
@@ -26,10 +23,8 @@ export async function POST(req: NextRequest) {
       })
       const data = await res.json()
       console.log('[OTP send]', JSON.stringify(data))
-
       if (data.code !== '000' || !data.result?.token)
         return NextResponse.json({ success: false, message: `SMSMKT: ${data.detail || data.message}` })
-
       await execute('DELETE FROM otp_tokens WHERE phone = ?', [phone])
       await execute(
         `INSERT INTO otp_tokens (phone, token, ref_code, expires_at)
@@ -42,11 +37,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ─── Step 2: Verify OTP ──────────────────────────────────
   if (step === 'verify_otp') {
     try {
       const record = await queryOne<any>(
-        `SELECT * FROM otp_tokens WHERE phone = ? AND verified = 0 AND expires_at > NOW() ORDER BY id DESC LIMIT 1`,
+        `SELECT * FROM otp_tokens WHERE phone=? AND verified=0 AND expires_at>NOW() ORDER BY id DESC LIMIT 1`,
         [phone]
       )
       if (!record) return NextResponse.json({ success: false, message: 'OTP หมดอายุ กรุณาขอใหม่' })
@@ -61,13 +55,12 @@ export async function POST(req: NextRequest) {
       console.log('[OTP verify]', JSON.stringify(data))
 
       if (data.code !== '000' || data.result?.status !== true) {
-        await execute('UPDATE otp_tokens SET attempts = attempts + 1 WHERE id = ?', [record.id])
+        await execute('UPDATE otp_tokens SET attempts=attempts+1 WHERE id=?', [record.id])
         return NextResponse.json({ success: false, message: 'OTP ไม่ถูกต้อง' })
       }
+      await execute('UPDATE otp_tokens SET verified=1 WHERE id=?', [record.id])
 
-      await execute('UPDATE otp_tokens SET verified = 1 WHERE id = ?', [record.id])
-
-      const user = await queryOne<User>('SELECT * FROM users WHERE phone = ?', [phone])
+      const user = await queryOne<User>('SELECT * FROM users WHERE phone=?', [phone])
       if (!user) return NextResponse.json({ success: true, is_new: true })
 
       const token = signToken({ id: user.id, phone: user.phone, role: user.role })
@@ -82,26 +75,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ─── Step 3: Set name (new merchant) ─────────────────────
   if (step === 'set_name') {
     if (!name?.trim()) return NextResponse.json({ success: false, message: 'ต้องการชื่อร้าน' })
     try {
-      // 1. Insert user
       const userResult = await execute(
         'INSERT INTO users (phone, name, role) VALUES (?,?,?)',
         [phone, name.trim(), 'merchant']
       )
       const userId = userResult.insertId
 
-      // 2. Insert merchant — ใช้ columns ที่มีจริงในตาราง
-      const qrCode = `MP-${uuid().slice(0,8).toUpperCase()}`
+      // ✅ ใช้ column ที่มีจริงในตาราง merchants เก่า
       const merchantResult = await execute(
-        'INSERT INTO merchants (store_name, phone, qr_code, approved) VALUES (?,?,?,1)',
-        [name.trim(), phone, qrCode]
+        'INSERT INTO merchants (shop_name, phone, status) VALUES (?,?,1)',
+        [name.trim(), phone]
       )
       const merchantId = merchantResult.insertId
 
-      // 3. Insert quota โดยใช้ merchantId โดยตรง
       await execute(
         'INSERT INTO merchant_quota (merchant_id, quota_total, quota_used) VALUES (?,0,0)',
         [merchantId]
