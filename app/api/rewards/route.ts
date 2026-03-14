@@ -9,7 +9,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const user = getAuthUser()
+  const user = await getAuthUser()
   if (!user || user.role !== 'admin')
     return NextResponse.json({ success: false }, { status: 403 })
 
@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = getAuthUser()
+  const user = await getAuthUser()
   if (!user || user.role !== 'admin')
     return NextResponse.json({ success: false }, { status: 403 })
 

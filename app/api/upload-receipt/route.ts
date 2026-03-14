@@ -5,11 +5,11 @@ import { uploadFile } from '@/lib/storage'
 import type { Merchant } from '@/types'
 
 export async function POST(req: NextRequest) {
-  const user = getAuthUser()
+  const user = await getAuthUser()
   if (!user) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
 
   const merchant = await queryOne<Merchant>(
-    'SELECT * FROM merchants WHERE user_id = ?', [user.id]
+    'SELECT * FROM merchants WHERE phone=? LIMIT 1', [user.phone]
   )
   if (!merchant) return NextResponse.json({ success: false, message: 'ไม่พบข้อมูลร้านค้า' })
 
@@ -37,16 +37,16 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const user = getAuthUser()
+  const user = await getAuthUser()
   if (!user) return NextResponse.json({ success: false }, { status: 401 })
 
-  const merchant = await queryOne<Merchant>('SELECT * FROM merchants WHERE user_id = ?', [user.id])
+  const merchant = await queryOne<Merchant>(
+    'SELECT * FROM merchants WHERE phone=? LIMIT 1', [user.phone]
+  )
   if (!merchant) return NextResponse.json({ success: false })
 
   const receipts = await query(
-    `SELECT r.*, m.store_name FROM receipts r
-     JOIN merchants m ON r.merchant_id = m.id
-     WHERE r.merchant_id = ? ORDER BY r.created_at DESC LIMIT 20`,
+    `SELECT * FROM receipts WHERE merchant_id=? ORDER BY created_at DESC LIMIT 20`,
     [merchant.id]
   )
   return NextResponse.json({ success: true, data: receipts })
