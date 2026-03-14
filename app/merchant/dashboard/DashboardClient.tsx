@@ -5,12 +5,6 @@ import Link from 'next/link'
 import MerchantLayout from '@/components/merchant/MerchantLayout'
 import type { Merchant, MerchantStats } from '@/types'
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: .5, delay, ease: [.16, 1, .3, 1] },
-})
-
 export default function MerchantDashboardClient({
   merchant, stats, todaySpins,
 }: {
@@ -22,103 +16,136 @@ export default function MerchantDashboardClient({
     ? Math.round((stats.quota_used / stats.quota_total) * 100)
     : 0
 
-  const cards = [
-    { label: 'Quota ทั้งหมด',  value: stats.quota_total,     color: 'bg-brand-50',  text: 'text-brand-700',  icon: '🎯' },
-    { label: 'ใช้ไปแล้ว',      value: stats.quota_used,      color: 'bg-red-50',    text: 'text-red-600',    icon: '📉' },
-    { label: 'เหลืออยู่',      value: stats.quota_remaining, color: 'bg-green-50',  text: 'text-green-600',  icon: '✅' },
-    { label: 'Spin วันนี้',     value: todaySpins,            color: 'bg-orange-50', text: 'text-orange-600', icon: '🎰' },
-    { label: 'Coupons ทั้งหมด', value: stats.total_coupons,  color: 'bg-pink-50',   text: 'text-pink-600',   icon: '🏷️' },
-    { label: 'ใบเสร็จ',         value: stats.total_receipts, color: 'bg-yellow-50', text: 'text-yellow-600', icon: '📄' },
-  ]
-
   return (
     <MerchantLayout storeName={merchant.store_name}>
-      {/* Welcome banner */}
-      <motion.div {...fadeUp(0)}
-        className="bg-gradient-to-br from-brand-600 to-brand-800 rounded-3xl p-5 mb-5 text-white"
-      >
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-brand-200 text-xs mb-1">ยินดีต้อนรับ 👋</div>
-            <h1 className="text-xl font-black leading-tight">{merchant.store_name}</h1>
-            <p className="text-brand-200 text-xs mt-1">{merchant.phone}</p>
+
+      {/* Hero banner - lottery style */}
+      <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }}
+        className="relative rounded-3xl overflow-hidden mb-5 shadow-xl">
+        {/* Pattern overlay */}
+        <div className="absolute inset-0"
+          style={{ background: 'linear-gradient(135deg, #CC0000 0%, #8B0000 100%)' }} />
+        <div className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: 'repeating-linear-gradient(45deg, #FFD700 0px, #FFD700 2px, transparent 2px, transparent 20px)' }} />
+        {/* Gold top border */}
+        <div className="absolute top-0 left-0 right-0 h-1"
+          style={{ background: 'linear-gradient(90deg, #FFD700, #FFA500, #FFD700)' }} />
+
+        <div className="relative p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-yellow-300 text-[10px] font-bold tracking-widest mb-1">
+                🐻‍🍳 MEEPRUNG DIGITAL LOTTERY
+              </div>
+              <h1 className="text-white text-xl font-black leading-tight">{merchant.store_name}</h1>
+              <p className="text-red-200 text-xs mt-0.5">{merchant.phone}</p>
+            </div>
+            <div className="text-4xl">🏪</div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-2xl">
-            🏪
+
+          {/* Gold divider */}
+          <div className="my-4 h-px" style={{ background: 'linear-gradient(90deg, transparent, #FFD700, transparent)' }} />
+
+          {/* Quota progress */}
+          <div className="bg-black/20 rounded-2xl p-3">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-yellow-300 text-xs font-bold">🎯 โควต้าสปิน</span>
+              <span className="text-white text-xs font-black">{stats.quota_remaining} เหลือ</span>
+            </div>
+            <div className="h-3 bg-black/30 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width:0 }}
+                animate={{ width: `${pct}%` }}
+                transition={{ duration:1.2, delay:.3, ease:[.16,1,.3,1] }}
+                className="h-full rounded-full"
+                style={{ background: 'linear-gradient(90deg, #FFD700, #FFA500)' }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] mt-1.5">
+              <span className="text-red-200">ใช้ไป {stats.quota_used}</span>
+              <span className="text-yellow-300 font-bold">{pct}%</span>
+              <span className="text-red-200">ทั้งหมด {stats.quota_total}</span>
+            </div>
           </div>
         </div>
 
-        {/* Quota progress */}
-        <div className="mt-4">
-          <div className="flex justify-between text-xs text-brand-200 mb-1.5">
-            <span>Quota ที่ใช้แล้ว</span>
-            <span className="font-bold text-white">{pct}%</span>
-          </div>
-          <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${pct}%` }}
-              transition={{ duration: 1.2, delay: .3, ease: [.16,1,.3,1] }}
-              className="h-full bg-white rounded-full"
-            />
-          </div>
-          <div className="flex justify-between text-xs text-brand-200 mt-1">
-            <span>{stats.quota_used} used</span>
-            <span>{stats.quota_remaining} remaining</span>
-          </div>
-        </div>
+        {/* Gold bottom border */}
+        <div className="absolute bottom-0 left-0 right-0 h-1"
+          style={{ background: 'linear-gradient(90deg, #FFD700, #FFA500, #FFD700)' }} />
       </motion.div>
 
-      {/* Stat cards grid */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        {cards.map((c, i) => (
-          <motion.div key={c.label} {...fadeUp(.08 * i + .1)}
-            className={`${c.color} rounded-2xl p-3 text-center`}
+      {/* Stats grid - lottery ticket style */}
+      <div className="grid grid-cols-3 gap-2.5 mb-5">
+        {[
+          { label:'สปินทั้งหมด', value:stats.quota_total,     icon:'🎯', color:'#CC0000' },
+          { label:'ใช้ไปแล้ว',   value:stats.quota_used,      icon:'🎰', color:'#8B0000' },
+          { label:'เหลืออยู่',   value:stats.quota_remaining, icon:'✨', color:'#B8860B' },
+          { label:'สปินวันนี้',  value:todaySpins,            icon:'📊', color:'#CC0000' },
+          { label:'คูปอง',       value:stats.total_coupons,   icon:'🏷️', color:'#8B0000' },
+          { label:'ใบเสร็จ',     value:stats.total_receipts,  icon:'📄', color:'#B8860B' },
+        ].map((c, i) => (
+          <motion.div key={c.label}
+            initial={{ opacity:0, scale:.9 }} animate={{ opacity:1, scale:1 }}
+            transition={{ delay:.08*i+.1 }}
+            className="rounded-2xl overflow-hidden shadow-sm"
           >
-            <div className="text-xl mb-1">{c.icon}</div>
-            <div className={`text-2xl font-black ${c.text}`}>
-              <CountUp end={c.value} duration={1.5} delay={.2 + i*.05} />
+            <div className="h-1" style={{ background: `linear-gradient(90deg, ${c.color}, ${c.color}88)` }} />
+            <div className="bg-amber-50 p-3 text-center border border-amber-100 rounded-b-2xl">
+              <div className="text-xl mb-1">{c.icon}</div>
+              <div className="text-2xl font-black" style={{ color: c.color }}>
+                <CountUp end={c.value} duration={1.5} delay={.1+i*.05} />
+              </div>
+              <div className="text-[10px] text-gray-500 mt-0.5 leading-tight">{c.label}</div>
             </div>
-            <div className="text-xs text-gray-500 mt-0.5 leading-tight">{c.label}</div>
           </motion.div>
         ))}
       </div>
 
-      {/* Quick actions */}
-      <motion.div {...fadeUp(.35)}>
-        <h2 className="text-sm font-bold text-gray-700 mb-3">เมนูลัด</h2>
+      {/* Menu - lottery card style */}
+      <motion.div initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} transition={{ delay:.4 }}>
+        <div className="text-xs font-black text-gray-500 mb-3 tracking-widest">เมนูหลัก</div>
         <div className="grid grid-cols-2 gap-3">
           <Link href="/merchant/upload"
-            className="bg-white rounded-2xl p-4 shadow-card flex items-center gap-3 card-hover border border-gray-100">
-            <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center text-xl">📷</div>
-            <div>
-              <div className="text-sm font-bold text-gray-900">อัพโหลดใบเสร็จ</div>
-              <div className="text-xs text-gray-400">1 ถุง = 30 spins</div>
+            className="relative rounded-2xl overflow-hidden shadow-md group">
+            <div className="absolute inset-0" style={{ background:'linear-gradient(135deg,#CC0000,#8B0000)' }} />
+            <div className="absolute inset-0 opacity-10"
+              style={{ backgroundImage:'repeating-linear-gradient(45deg,#FFD700 0px,#FFD700 1px,transparent 1px,transparent 15px)' }} />
+            <div className="relative p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">📷</div>
+              <div>
+                <div className="text-white font-black text-sm">อัพโหลดใบเสร็จ</div>
+                <div className="text-red-200 text-xs">1 ถุง = 30 สปิน</div>
+              </div>
             </div>
           </Link>
+
           <Link href="/merchant/qrcodes"
-            className="bg-white rounded-2xl p-4 shadow-card flex items-center gap-3 card-hover border border-gray-100">
-            <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center text-xl">📱</div>
-            <div>
-              <div className="text-sm font-bold text-gray-900">QR Code ร้าน</div>
-              <div className="text-xs text-gray-400">ดาวน์โหลด / แชร์</div>
+            className="relative rounded-2xl overflow-hidden shadow-md group">
+            <div className="absolute inset-0" style={{ background:'linear-gradient(135deg,#B8860B,#8B6914)' }} />
+            <div className="absolute inset-0 opacity-10"
+              style={{ backgroundImage:'repeating-linear-gradient(45deg,#FFD700 0px,#FFD700 1px,transparent 1px,transparent 15px)' }} />
+            <div className="relative p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">📱</div>
+              <div>
+                <div className="text-white font-black text-sm">QR Code ร้าน</div>
+                <div className="text-yellow-200 text-xs">ดาวน์โหลด / แชร์</div>
+              </div>
             </div>
           </Link>
+
           <Link href="/merchant/history"
-            className="bg-white rounded-2xl p-4 shadow-card flex items-center gap-3 card-hover border border-gray-100">
-            <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center text-xl">📋</div>
-            <div>
-              <div className="text-sm font-bold text-gray-900">ประวัติการใช้</div>
-              <div className="text-xs text-gray-400">Spin & Coupon</div>
+            className="relative rounded-2xl overflow-hidden shadow-md col-span-2">
+            <div className="absolute inset-0 bg-amber-50 border border-amber-200 rounded-2xl" />
+            <div className="relative p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                style={{ background:'linear-gradient(135deg,#FFD700,#FFA500)' }}>📋</div>
+              <div>
+                <div className="font-black text-sm text-gray-800">ประวัติการใช้งาน</div>
+                <div className="text-xs text-gray-400">Spin &amp; Coupon history</div>
+              </div>
+              <div className="ml-auto text-gray-300 text-lg">›</div>
             </div>
           </Link>
-          <div className="bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">🎟️</div>
-            <div>
-              <div className="text-sm font-bold text-white">Grand Prize</div>
-              <div className="text-xs text-pink-100">ลุ้นโชคใหญ่</div>
-            </div>
-          </div>
         </div>
       </motion.div>
     </MerchantLayout>
